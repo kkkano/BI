@@ -15,7 +15,7 @@ class AiManagerTest {
 
     @Test
     void doChat() {
-        String answer = aiManager.doChat("分析需求：\n" +
+        String answer = aiManager.doChat(1716811466025619457L,"分析需求：\n" +
                 "分析网站用户的增长情况\n" +
                 "原始数据：\n" +
                 "日期，用户数\n" +
