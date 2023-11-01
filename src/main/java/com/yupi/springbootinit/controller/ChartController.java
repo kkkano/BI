@@ -15,6 +15,7 @@ import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.manager.AiManager;
+import com.yupi.springbootinit.manager.RedisLimiterManager;
 import com.yupi.springbootinit.model.dto.chart.*;
 import com.yupi.springbootinit.model.dto.file.UploadFileRequest;
 import com.yupi.springbootinit.model.entity.Chart;
@@ -58,7 +59,8 @@ public class ChartController {
     @Resource
     private AiManager aiManager;
     private final static Gson GSON = new Gson();
-
+    @Resource
+    private RedisLimiterManager redisLimiterManager;
     // region 增删改查
 
     /**
@@ -275,7 +277,8 @@ public class ChartController {
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
         // 通过response对象拿到用户id(必须登录才能使用)
         User loginUser = userService.getLoginUser(request);
-
+        // 限流判断，每个用户一个限流器
+        redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
         // 指定一个模型id(把id写死，也可以定义成一个常量)
         long biModelId = 1716811466025619457L;
     /*
