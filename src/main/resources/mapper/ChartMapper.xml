@@ -5,23 +5,40 @@
 <mapper namespace="com.yupi.springbootinit.mapper.ChartMapper">
 
     <resultMap id="BaseResultMap" type="com.yupi.springbootinit.model.entity.Chart">
-            <id property="id" column="id" jdbcType="BIGINT"/>
-            <result property="name" column="name" jdbcType="VARCHAR"/>
-            <result property="goal" column="goal" jdbcType="VARCHAR"/>
-            <result property="chartData" column="chartData" jdbcType="VARCHAR"/>
-            <result property="chartType" column="chartType" jdbcType="VARCHAR"/>
-            <result property="genChart" column="genChart" jdbcType="VARCHAR"/>
-            <result property="genResult" column="genResult" jdbcType="VARCHAR"/>
-            <result property="userId" column="userId" jdbcType="BIGINT"/>
-            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
-            <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
-            <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
+        <id property="id" column="id" jdbcType="BIGINT"/>
+        <result property="name" column="name" jdbcType="VARCHAR"/>
+        <result property="goal" column="goal" jdbcType="VARCHAR"/>
+        <result property="chartData" column="chartData" jdbcType="VARCHAR"/>
+        <result property="chartType" column="chartType" jdbcType="VARCHAR"/>
+        <result property="genChart" column="genChart" jdbcType="VARCHAR"/>
+        <result property="genResult" column="genResult" jdbcType="VARCHAR"/>
+        <result property="userId" column="userId" jdbcType="BIGINT"/>
+        <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+        <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
+        <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
     </resultMap>
 
+
     <sql id="Base_Column_List">
-        id,'namne',goal,chartData,
-        chartType,genChart,genResult,
-        userId,createTime,updateTime,
-        isDelete
+        id,'name',goal,chartData,
+            chartType,genChart,genResult,userId,
+            createTime,updateTime,isDelete
     </sql>
+
+    <!--
+queryChartData唯一标识符;parameterType查询语句的参数类型,类型为字符串;
+resultType查询结果的返回类型,类型为map类型;
+${querySql}是SQL查询语句的占位符;
+select * from chart_#{chartId} 不够灵活,${querySql}是最灵活的方式，
+就是把sql语句完全交给程序去传递，有一定的风险;
+一旦使用$符号，就有sql注入的风险。
+-->
+
+    <select id="queryChartData" parameterType="string" resultType="map">
+  ${querySql}
+</select>
+    <!--
+    可以在程序里面去做校验。只要保证这个SQL是通过你的后端生成的，
+    在生成的过程中做了校验，就不会有这种漏洞的风险。
+    -->
 </mapper>

@@ -30,3 +30,12 @@ create table if not exists chart
     updateTime   datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
     isDelete     tinyint      default 0                 not null comment '是否删除'
 ) comment '图表信息表' collate = utf8mb4_unicode_ci;
+
+use yubi;
+create table chart_1717550682513911809
+(
+    日期  int null,
+    用户数 int null
+);
+use yubi;
+select * from chart_1717550682513911809;
