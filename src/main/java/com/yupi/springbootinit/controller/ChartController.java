@@ -39,6 +39,8 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * 帖子接口
@@ -61,6 +63,9 @@ public class ChartController {
     private final static Gson GSON = new Gson();
     @Resource
     private RedisLimiterManager redisLimiterManager;
+    @Resource
+    private ThreadPoolExecutor threadPoolExecutor;
+
     // region 增删改查
 
     /**
@@ -272,7 +277,7 @@ public class ChartController {
          */
         String suffix = FileUtil.getSuffix(originalFilename);
         // 定义合法的后缀列表
-        final List<String> validFileSuffixList = Arrays.asList("png", "jpg", "svg", "webp", "jpeg");
+        final List<String> validFileSuffixList = Arrays.asList("xlsx", "xls");
         // 如果suffix的后缀不在List的范围内,抛出异常,并提示'文件后缀非法'
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
         // 通过response对象拿到用户id(必须登录才能使用)
@@ -308,32 +313,37 @@ public class ChartController {
         // 压缩后的数据（把multipartFile传进来）
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
-
-        // 拿到返回结果
-        String result = aiManager.doChat(biModelId,userInput.toString());
-        // 对返回结果做拆分,按照5个中括号进行拆分
-        String[] splits = result.split("【【【【【");
-        // 拆分之后还要进行校验
-        if (splits.length < 3) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"AI 生成错误");
-        }
-
-        String genChart = splits[1].trim();
-        String genResult = splits[2].trim();
-        // 插入到数据库
+        // 先把图表保存到数据库中
         Chart chart = new Chart();
         chart.setName(name);
         chart.setGoal(goal);
         chart.setChartData(csvData);
         chart.setChartType(chartType);
-        chart.setGenChart(genChart);
-        chart.setGenResult(genResult);
+        // 插入数据库时,还没生成结束,把生成结果都去掉
+        //        chart.setGenChart(genChart);
+        //        chart.setGenResult(genResult);
+        // 设置任务状态为排队中
+        chart.setStatus("wait");
         chart.setUserId(loginUser.getId());
         boolean saveResult = chartService.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+
+        // 在最终的返回结果前提交一个任务
+        // todo 建议处理任务队列满了后,抛异常的情况(因为提交任务报错了,前端会返回异常)
+        CompletableFuture.runAsync(() -> {
+            // 调用 AI
+            String result = aiManager.doChat(biModelId, userInput.toString());
+            String[] splits = result.split("【【【【【");
+            if (splits.length < 3) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成错误");
+            }
+            String genChart = splits[1].trim();
+            String genResult = splits[2].trim();
+        });
+
         BiResponse biResponse = new BiResponse();
-        biResponse.setGenChart(genChart);
-        biResponse.setGenResult(genResult);
+        //        biResponse.setGenChart(genChart);
+        //        biResponse.setGenResult(genResult);
         biResponse.setChartId(chart.getId());
         return ResultUtils.success(biResponse);
     }
