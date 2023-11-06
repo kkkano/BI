@@ -15,6 +15,7 @@
     <artifactId>yubi-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>yubi-backend</name>
+
     <properties>
         <java.version>1.8</java.version>
     </properties>
@@ -51,6 +52,12 @@
             <groupId>com.yucongming</groupId>
             <artifactId>yucongming-java-sdk</artifactId>
             <version>0.0.2</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.rabbitmq/amqp-client -->
+        <dependency>
+            <groupId>com.rabbitmq</groupId>
+            <artifactId>amqp-client</artifactId>
+            <version>5.17.0</version>
         </dependency>
         <!-- redis -->
         <dependency>
