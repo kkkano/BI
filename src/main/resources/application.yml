@@ -24,6 +24,11 @@ spring:
     url: jdbc:mysql://localhost:3306/yubi
     username: root
     password: 123456
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: test
+    password: test
   # Redis 配置
   # todo 需替换配置，然后取消注释
 redis:
@@ -43,11 +48,7 @@ redis:
     multipart:
       # 大小限制
       max-file-size: 10MB
-  rabbitmq:
-    host: localhost
-    port: 5672
-    password: test
-    username: test
+
 server:
   address: 0.0.0.0
   port: 8101

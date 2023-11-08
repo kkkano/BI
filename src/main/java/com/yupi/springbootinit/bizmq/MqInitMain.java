@@ -13,6 +13,8 @@ public class MqInitMain {
         try {
             ConnectionFactory factory = new ConnectionFactory();
             factory.setHost("localhost");
+            factory.setUsername("test");
+            factory.setPassword("test");
             Connection connection = factory.newConnection();
             Channel channel = connection.createChannel();
             String EXCHANGE_NAME = "code_exchange";
