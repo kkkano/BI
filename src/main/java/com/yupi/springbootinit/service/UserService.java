@@ -7,6 +7,7 @@ import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.LoginUserVO;
 import com.yupi.springbootinit.model.vo.UserVO;
 import java.util.List;
+import javax.annotation.security.PermitAll;
 import javax.servlet.http.HttpServletRequest;
 import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
 
@@ -26,6 +27,7 @@ public interface UserService extends IService<User> {
      * @param checkPassword 校验密码
      * @return 新用户 id
      */
+    @PermitAll
     long userRegister(String userAccount, String userPassword, String checkPassword);
 
     /**

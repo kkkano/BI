@@ -301,6 +301,7 @@ public class ChartController {
         String genResult = splits[2].trim();
         // 插入到数据库
         Chart chart = new Chart();
+        chart.setStatus("succeed");
         chart.setName(name);
         chart.setGoal(goal);
         chart.setChartData(csvData);

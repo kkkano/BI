@@ -72,6 +72,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             User user = new User();
             user.setUserAccount(userAccount);
             user.setUserPassword(encryptPassword);
+            //设一个默认头像和用户名  不然进入主页后 由于前端的问题 头像的地方一直转圈圈不能进行注销等操作
+            user.setUserName("没有用户名的新用户");
+            user.setUserAvatar("https://i.postimg.cc/RFSmTsLW/2-C53-F2-F2613-D0-A4-BB6-E8905985583311.jpg");
             boolean saveResult = this.save(user);
             if (!saveResult) {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
