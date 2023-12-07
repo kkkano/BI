@@ -24,6 +24,7 @@ import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.ExcelUtils;
 import com.yupi.springbootinit.utils.SqlUtils;
+import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -317,7 +318,24 @@ public class ChartController {
         biResponse.setChartId(chart.getId());
         return ResultUtils.success(biResponse);
     }
-
+//    @GetMapping("/regen/chart")
+//    @ApiOperation(value = "重新生成图表")
+//    public BaseResponse<String> regenerateChart(@RequestParam("chartId") Long chartId) {
+//        // 取出数据
+//        ChartEntity chartEntity = chartService.getById(chartId);
+//        ThrowUtils.throwIf(chartEntity.getChartData().length() > 1000, ErrorCode.SYSTEM_ERROR, "原始信息过长!");
+//        // 获取用户信息
+//        UserEntity user = userService.getLoginUser();
+//        redisLimiterManager.doRateLimit(RedisConstant.GEN_CHART_LIMIT_KEY + user.getUserId());
+//        chartEntity.setStatus(ChartStatusEnum.WAIT.getStatus());
+//        // 更新状态信息
+//        boolean updateById = chartService.updateById(chartEntity);
+//        ThrowUtils.throwIf(!updateById, ErrorCode.SYSTEM_ERROR, "重新生成图表失败");
+//        // 2. send to rabbitMQ
+//        long newChartId = chartEntity.getId();
+//        biMqMessageProducer.sendGenChartMessage(String.valueOf(newChartId));
+//        return ResultUtil.success("操作成功");
+//    }
     /**
      * 智能分析（异步）
      *

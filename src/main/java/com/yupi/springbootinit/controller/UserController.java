@@ -21,6 +21,7 @@ import com.yupi.springbootinit.model.vo.LoginUserVO;
 import com.yupi.springbootinit.model.vo.UserVO;
 import com.yupi.springbootinit.service.UserService;
 import java.util.List;
+import java.util.logging.Logger;
 import javax.annotation.Resource;
 import javax.annotation.security.PermitAll;
 import javax.servlet.http.HttpServletRequest;
@@ -38,6 +39,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.slf4j.LoggerFactory;
 /**
  * 用户接口
  *
@@ -54,6 +56,15 @@ public class UserController {
 
     @Resource
     private WxOpenConfig wxOpenConfig;
+
+
+
+
+    @GetMapping("/getalluser")
+    public List<User> getAllUsers() {
+        return userService.getAllUsers();
+    }
+
 
     // region 登录相关
 
@@ -236,6 +247,9 @@ public class UserController {
             HttpServletRequest request) {
         long current = userQueryRequest.getCurrent();
         long size = userQueryRequest.getPageSize();
+
+
+
         Page<User> userPage = userService.page(new Page<>(current, size),
                 userService.getQueryWrapper(userQueryRequest));
         return ResultUtils.success(userPage);
