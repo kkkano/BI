@@ -31,8 +31,11 @@ public class RedissonConfig {
                 // 设置数据库
                 .setDatabase(1)
 
-                // 设置redis的地址
+                // 设置redis的地址 要部署就不写死了
+
                 .setAddress("redis://" + "127.0.0.1" + ":" + "6379");
+//                .setAddress(String.format("redis://%s:%s",host,port));
+
         // 设置redis的密码(redis有密码才设置)
         //                .setPassword(password);
 

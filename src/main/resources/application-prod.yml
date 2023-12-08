@@ -8,24 +8,45 @@ spring:
   # todo 需替换配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/my_db
-    username: root
-    password: 123456
+    url: jdbc:mysql://47.100.122.205:3306/yubi
+    username: wx
+    password: Wx5532102
   # Redis 配置
   # todo 需替换配置
   redis:
     database: 1
-    host: localhost
+    host: 47.100.122.205
     port: 6379
     timeout: 5000
-    password: 123456
+#    password: 123456
   # Elasticsearch 配置
   # todo 需替换配置
-  elasticsearch:
-    uris: http://localhost:9200
-    username: root
-    password: 123456
+#  elasticsearch:
+#    uris: http://47.100.122.205:9200
+#    username: root
+#    password: 123456
+  rabbitmq:
+    host: 47.100.122.205
+    port: 5672
+    username: admin
+    password: Wx5532102
 mybatis-plus:
   configuration:
+    map-underscore-to-camel-case: false
+  # 文件上传
+  servlet:
+    multipart:
+      # 大小限制
+      max-file-size: 10MB
+  global-config:
+    db-config:
+      logic-delete-field: isDelete # 全局逻辑删除的实体字段名
+      logic-delete-value: 1 # 逻辑已删除值（默认为 1）
+      logic-not-delete-value: 0 # 逻辑未删除值（默认为 0）
+
     # 生产环境关闭日志
-    log-impl: ''
+      log-impl: ''
+yuapi:
+  client:
+    access-key: 97iar9yxpvnve4g0o7tlpn2u0q47dzm8
+    secret-key: 7ntr30anwhcay5taeuja2608zcvgzpj4

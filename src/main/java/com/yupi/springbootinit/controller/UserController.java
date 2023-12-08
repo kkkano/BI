@@ -61,6 +61,7 @@ public class UserController {
 
 
     @GetMapping("/getalluser")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public List<User> getAllUsers() {
         return userService.getAllUsers();
     }
