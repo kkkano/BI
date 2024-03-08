@@ -1,6 +1,7 @@
 package com.yupi.springbootinit.model.vo;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Date;
 import lombok.Data;
 
@@ -42,6 +43,8 @@ public class UserVO implements Serializable {
      * 创建时间
      */
     private Date createTime;
-
+    private int usageCount; // 使用次数
+    private Integer points; // 积分
+    private LocalDateTime lastCheckIn;//最后签到时间
     private static final long serialVersionUID = 1L;
 }

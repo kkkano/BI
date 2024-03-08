@@ -1,6 +1,8 @@
 package com.yupi.springbootinit.model.dto.user;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
+
 import lombok.Data;
 
 /**
@@ -35,6 +37,8 @@ public class UserUpdateRequest implements Serializable {
      * 用户角色：user/admin/ban
      */
     private String userRole;
-
+    private int usageCount; // 使用次数
+    private Integer points; // 积分
+    private LocalDateTime lastCheckIn;//最后签到时间
     private static final long serialVersionUID = 1L;
 }

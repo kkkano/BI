@@ -1,6 +1,8 @@
 package com.yupi.springbootinit.model.dto.user;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
+
 import lombok.Data;
 
 /**
@@ -26,6 +28,8 @@ public class UserUpdateMyRequest implements Serializable {
      * 简介
      */
     private String userProfile;
-
+    private int usageCount; // 使用次数
+    private Integer points; // 积分
+    private LocalDateTime lastCheckIn;//最后签到时间
     private static final long serialVersionUID = 1L;
 }

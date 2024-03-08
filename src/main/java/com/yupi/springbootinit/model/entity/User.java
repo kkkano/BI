@@ -55,7 +55,7 @@ public class User implements Serializable {
      */
     private Date updateTime;
     private int usageCount; // 使用次数
-    private int points; // 积分
+    private Integer points; // 积分
     private LocalDateTime lastCheckIn;//最后签到时间
     /**
      * 是否删除
