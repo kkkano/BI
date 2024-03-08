@@ -256,6 +256,10 @@ public class ChartController {
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
 
         User loginUser = userService.getLoginUser(request);
+        // 判断积分是否足够
+        if (loginUser.getPoints() < 1) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "积分不足，无法使用此服务");
+        }
         // 限流判断，每个用户一个限流器
         redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
         // 无需写 prompt，直接调用现有模型，https://www.yucongming.com，公众号搜【鱼聪明AI】
@@ -302,6 +306,8 @@ public class ChartController {
         String genResult = splits[2].trim();
         // 插入到数据库
         Chart chart = new Chart();
+        //使用一次 使用次数+1 积分-1
+        userService.updateUserPointsAndUsageCount(loginUser);
         chart.setStatus("succeed");
         chart.setName(name);
         chart.setGoal(goal);
@@ -365,6 +371,9 @@ public class ChartController {
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
 
         User loginUser = userService.getLoginUser(request);
+        if (loginUser.getPoints() < 1) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "积分不足，无法使用此服务");
+        }
         // 限流判断，每个用户一个限流器
         redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
         // 无需写 prompt，直接调用现有模型，https://www.yucongming.com，公众号搜【鱼聪明AI】
@@ -404,6 +413,8 @@ public class ChartController {
 
         // 插入到数据库
         Chart chart = new Chart();
+        //使用一次 使用次数+1 积分-1
+        userService.updateUserPointsAndUsageCount(loginUser);
         chart.setName(name);
         chart.setGoal(goal);
         chart.setChartData(csvData);
@@ -479,6 +490,9 @@ public class ChartController {
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
 
         User loginUser = userService.getLoginUser(request);
+        if (loginUser.getPoints() < 1) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "积分不足，无法使用此服务");
+        }
         // 限流判断，每个用户一个限流器
         redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
         // 无需写 prompt，直接调用现有模型，https://www.yucongming.com，公众号搜【鱼聪明AI】
@@ -518,6 +532,8 @@ public class ChartController {
 
         // 插入到数据库
         Chart chart = new Chart();
+        //使用一次 使用次数+1 积分-1
+        userService.updateUserPointsAndUsageCount(loginUser);
         chart.setName(name);
         chart.setGoal(goal);
         chart.setChartData(csvData);

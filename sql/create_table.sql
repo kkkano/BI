@@ -11,6 +11,11 @@ create table if not exists user
     createTime   datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
     updateTime   datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
     isDelete     tinyint      default 0                 not null comment '是否删除',
+
+    usageCount   int          default 0                 not null comment '使用次数',
+    points       int          default 0                 not null comment '积分',
+    lastCheckIn  datetime     default CURRENT_TIMESTAMP not null comment '最后签到时间',
+
     index idx_userAccount (userAccount)
 ) comment '用户' collate = utf8mb4_unicode_ci;
 

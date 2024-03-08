@@ -118,6 +118,7 @@ public interface UserService extends IService<User> {
 
   List<User> getAllUsers() ;
 
-
+    void updateUserPointsAndUsageCount(User loginUser);
+    User UserCheckIn(User user);
 
 }

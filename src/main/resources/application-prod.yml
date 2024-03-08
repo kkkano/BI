@@ -2,7 +2,7 @@
 # @author <a href="https://github.com/kkkano">kkkano</a>
 # @from <a href=“https://github.com/kkkano/BI”</a>
 server:
-  port: 8101
+  port: 8000
 spring:
   # 数据库配置
   # todo 需替换配置
@@ -18,7 +18,8 @@ spring:
     host: 47.100.122.205
     port: 6379
     timeout: 5000
-#    password: 123456
+    password: Wx5532102
+  #    password: 123456
   # Elasticsearch 配置
   # todo 需替换配置
 #  elasticsearch:

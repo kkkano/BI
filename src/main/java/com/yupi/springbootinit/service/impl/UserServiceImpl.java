@@ -3,11 +3,13 @@ package com.yupi.springbootinit.service.impl;
 import static com.yupi.springbootinit.constant.UserConstant.USER_LOGIN_STATE;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.exception.BusinessException;
+import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.mapper.UserMapper;
 import com.yupi.springbootinit.model.dto.user.UserQueryRequest;
 import com.yupi.springbootinit.model.entity.User;
@@ -16,6 +18,9 @@ import com.yupi.springbootinit.model.vo.LoginUserVO;
 import com.yupi.springbootinit.model.vo.UserVO;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.SqlUtils;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -255,4 +260,40 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         return userMapper.selectList(wrapper);
     }
+
+    //用户每日签到获得10积分。
+    @Override
+    public User UserCheckIn(User user) {
+        if (user == null) {
+            return null;
+        }
+        QueryWrapper<User> wrapper = new QueryWrapper<>();
+
+        wrapper.eq("isDelete", 0).eq("id", user.getId());
+        User existingUser = userMapper.selectOne(wrapper);
+        if (existingUser != null) {
+            LocalDate lastCheckInDate = existingUser.getLastCheckIn().toLocalDate();
+            LocalDate today = LocalDate.now();
+            if (lastCheckInDate.isBefore(today)) {
+                existingUser.setLastCheckIn(LocalDateTime.now());
+//            existingUser.setUsageCount(existingUser.getUsageCount() + 1);
+                existingUser.setPoints(existingUser.getPoints() + 10);
+                userMapper.update(existingUser, wrapper);
+            } else {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR,"今日已签到,请明天再来");
+            }
+        }
+        return existingUser;
+    }
+    @Override
+    public void updateUserPointsAndUsageCount(User loginUser) {
+        UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
+        userUpdateWrapper.eq("id", loginUser.getId())  // 设置更新条件
+                .set("usageCount", loginUser.getUsageCount()+1)
+                .set("points", loginUser.getPoints() - 1);
+
+        boolean isUpdated = this.update(userUpdateWrapper);
+        ThrowUtils.throwIf(!isUpdated, ErrorCode.SYSTEM_ERROR, "积分更新失败");
+    }
 }
+

@@ -30,10 +30,13 @@ public class RedissonConfig {
         config.useSingleServer()
                 // 设置数据库
                 .setDatabase(1)
-
+                //本地的redis没有密码 服务器上面有
+//                .setPassword("Wx5532102")
                 // 设置redis的地址 要部署就不写死了
+//                .setAddress("redis://47.100.122.205:6379");
 
-                .setAddress("redis://" + "127.0.0.1" + ":" + "6379");
+
+            .setAddress("redis://" + "127.0.0.1" + ":" + "6379");
 //                .setAddress(String.format("redis://%s:%s",host,port));
 
         // 设置redis的密码(redis有密码才设置)

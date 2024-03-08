@@ -58,7 +58,14 @@ public class UserController {
     private WxOpenConfig wxOpenConfig;
 
 
-
+    //用户签到
+    @PostMapping("/checkin")
+    public BaseResponse<Boolean> userCheckIn(HttpServletRequest request) {
+        User user = userService.getLoginUser(request);
+        User checkedInUser = userService.UserCheckIn(user);
+        boolean b = (checkedInUser != null);
+        return ResultUtils.success(b);
+    }
 
     @GetMapping("/getalluser")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
