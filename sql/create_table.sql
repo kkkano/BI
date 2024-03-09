@@ -40,7 +40,10 @@ create table if not exists chart
     updateTime   datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
     isDelete     tinyint      default 0                 not null comment '是否删除'
 ) comment '图表信息表' collate = utf8mb4_unicode_ci;
-
+ALTER TABLE `user`
+    ADD COLUMN `usageCount` INT NOT NULL DEFAULT 0 COMMENT '使用次数' AFTER `isDelete`,
+    ADD COLUMN `points` INT NOT NULL DEFAULT 0 COMMENT '积分' AFTER `usageCount`,
+    ADD COLUMN `lastCheckIn` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最后签到时间' AFTER `points`;
 use yubi;
 create table chart_1717550682513911809
 (
