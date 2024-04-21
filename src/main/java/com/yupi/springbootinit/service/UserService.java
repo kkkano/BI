@@ -32,7 +32,8 @@ public interface UserService extends IService<User> {
      */
     @PermitAll
     long userRegister(String userAccount, String userPassword, String checkPassword);
-
+    long userAdd(User user);
+    List<User>userSearch(User user);
     /**
      * 用户登录
      *

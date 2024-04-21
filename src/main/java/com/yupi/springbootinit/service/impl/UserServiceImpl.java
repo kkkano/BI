@@ -2,6 +2,7 @@ package com.yupi.springbootinit.service.impl;
 
 import static com.yupi.springbootinit.constant.UserConstant.USER_LOGIN_STATE;
 
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
@@ -82,7 +83,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             user.setUserPassword(encryptPassword);
             //设一个默认头像和用户名  不然进入主页后 由于前端的问题 头像的地方一直转圈圈不能进行注销等操作
             user.setUserName("没有用户名的新用户");
-            user.setUserAvatar("https://i.postimg.cc/RFSmTsLW/2-C53-F2-F2613-D0-A4-BB6-E8905985583311.jpg");
+            user.setUserAvatar("https://s1.imagehub.cc/images/2024/03/09/730db27314cae0f2955b91731eca1cd6.jpeg");
             boolean saveResult = this.save(user);
             if (!saveResult) {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
@@ -90,6 +91,64 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return user.getId();
         }
     }
+
+
+    @Override
+    public long userAdd(User user) {
+        String userAccount= user.getUserAccount();
+        String userPassword= user.getUserPassword();
+        String userName= user.getUserName();
+
+        // 1. 校验
+        if (StringUtils.isAnyBlank(userAccount, userPassword, userName)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
+        }
+        if (userAccount.length() < 4) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
+        }
+        if (userPassword.length() < 8) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
+        }
+        synchronized (userAccount.intern()) {
+            // 账户不能重复
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("userAccount", userAccount);
+            long count = this.baseMapper.selectCount(queryWrapper);
+            if (count > 0) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号重复");
+            }
+            // 2. 加密
+            String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
+            // 3. 插入数据
+
+            user.setUserAccount(userAccount);
+            user.setUserPassword(encryptPassword);
+            //设一个默认头像  不然进入主页后 由于前端的问题 头像的地方一直转圈圈不能进行注销等操作
+
+            user.setUserAvatar("https://s1.imagehub.cc/images/2024/03/09/730db27314cae0f2955b91731eca1cd6.jpeg");
+            boolean saveResult = this.save(user);
+            if (!saveResult) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
+            }
+            return user.getId();
+        }
+    }
+
+    @Override
+    public List<User> userSearch(User user) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+
+
+        if (StringUtils.isNotBlank(user.getUserName())) {
+            queryWrapper.eq("username", user.getUserName());
+        }
+
+        // 执行查询并返回结果列表
+        return userMapper.selectList(queryWrapper);
+    }
+
+
+
 
     @Override
     public LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {

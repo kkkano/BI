@@ -1,9 +1,13 @@
 package com.yupi.springbootinit.service;
 
 import javax.annotation.Resource;
+
+import com.yupi.springbootinit.model.entity.User;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+
+import java.util.List;
 
 /**
  * 用户服务测试
@@ -16,7 +20,16 @@ public class UserServiceTest {
 
     @Resource
     private UserService userService;
-
+    @Test
+    void usersearch() {
+        String userName = "阿滋以";
+        User user = new User();
+        user.setUserName(userName);
+        List<User> result = userService.userSearch(user);
+        for (User u : result) {
+            System.out.println(u);
+        }
+    }
     @Test
     void userRegister() {
         String userAccount = "yupi";

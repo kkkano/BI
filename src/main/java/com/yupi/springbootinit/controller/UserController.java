@@ -167,11 +167,12 @@ public class UserController {
         }
         User user = new User();
         BeanUtils.copyProperties(userAddRequest, user);
-        boolean result = userService.save(user);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
-        return ResultUtils.success(user.getId());
+        Long userId = userService.userAdd(user);
+        if (userId == null) {
+            ThrowUtils.throwIf(true, ErrorCode.OPERATION_ERROR);
+        }
+        return ResultUtils.success(userId);
     }
-
     /**
      * 删除用户
      *
@@ -208,6 +209,14 @@ public class UserController {
         boolean result = userService.updateById(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
+    }
+
+    @GetMapping("/search")
+    public List<User> searchUsers(@RequestParam(name = "userName") String userName) {
+        User user = new User();
+        user.setUserName(userName);
+
+        return userService.userSearch(user);
     }
 
     /**

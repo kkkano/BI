@@ -10,13 +10,14 @@ import lombok.Data;
  * @from <a href=“https://github.com/kkkano/BI”</a>
  */
 @Data
+
 public class UserAddRequest implements Serializable {
 
     /**
      * 用户昵称
      */
     private String userName;
-
+    private String userPassword; // 新增用户密码字段
     /**
      * 账号
      */
