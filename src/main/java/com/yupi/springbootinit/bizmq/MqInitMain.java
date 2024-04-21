@@ -12,12 +12,12 @@ public class MqInitMain {
     public static void main(String[] args) {
         try {
             ConnectionFactory factory = new ConnectionFactory();
-//            factory.setHost("localhost");
-//            factory.setUsername("test");
-//            factory.setPassword("test");
-            factory.setHost("47.100.122.205");
-            factory.setUsername("admin");
-            factory.setPassword("Wx5532102");
+            factory.setHost("localhost");
+            factory.setUsername("test");
+            factory.setPassword("test");
+//            factory.setHost("47.100.122.205");
+//            factory.setUsername("admin");
+//            factory.setPassword("Wx5532102");
             factory.setPort(5672);
             Connection connection = factory.newConnection();
             Channel channel = connection.createChannel();
