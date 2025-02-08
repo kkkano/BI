@@ -9,7 +9,6 @@
 
 ![image](https://github.com/kkkano/BI/assets/74480939/bfe31af5-1348-44b9-a6c8-cf5bd4fc9ba8)
 
-![image](https://github.com/kkkano/BI/assets/74480939/a9ab5258-e8b0-4b26-b773-a760c8048823)
 ![image](https://github.com/kkkano/BI/assets/74480939/22367655-2d9a-4c60-adb8-7dd07b9c3651)
 ![Uploading image.png…]()
 ![image](https://github.com/kkkano/BI/assets/74480939/91b86f80-44f4-4486-a07b-ea21e4492c9c)
