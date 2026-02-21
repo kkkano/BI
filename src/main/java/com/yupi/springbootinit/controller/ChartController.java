@@ -20,6 +20,7 @@ import com.yupi.springbootinit.model.dto.chart.*;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.vo.BiResponse;
+import com.yupi.springbootinit.model.vo.ChartTaskStatusVO;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.ExcelUtils;
@@ -153,6 +154,29 @@ public class ChartController {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
         return ResultUtils.success(chart);
+    }
+
+    /**
+     * 获取图表任务状态（轻量轮询）
+     */
+    @GetMapping("/task/status")
+    @ApiOperation(value = "获取图表任务状态")
+    public BaseResponse<ChartTaskStatusVO> getChartTaskStatus(long chartId, HttpServletRequest request) {
+        ThrowUtils.throwIf(chartId <= 0, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        Chart chart = chartService.getById(chartId);
+        ThrowUtils.throwIf(chart == null, ErrorCode.NOT_FOUND_ERROR);
+        // 仅本人或管理员可看任务详情
+        if (!chart.getUserId().equals(loginUser.getId()) && !userService.isAdmin(request)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+        ChartTaskStatusVO vo = new ChartTaskStatusVO();
+        vo.setChartId(chart.getId());
+        vo.setStatus(chart.getStatus());
+        vo.setExecMessage(chart.getExecMessage());
+        vo.setGenChart(chart.getGenChart());
+        vo.setGenResult(chart.getGenResult());
+        return ResultUtils.success(vo);
     }
 
     /**
@@ -554,7 +578,7 @@ public class ChartController {
         Chart updateChartResult = new Chart();
         updateChartResult.setId(chartId);
         updateChartResult.setStatus("failed");
-        updateChartResult.setExecMessage("execMessage");
+        updateChartResult.setExecMessage(execMessage);
         boolean updateResult = chartService.updateById(updateChartResult);
         if (!updateResult) {
             log.error("更新图表失败状态失败" + chartId + "," + execMessage);
