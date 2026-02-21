@@ -102,9 +102,3 @@ yuapi:
   client:
     access-key: 97iar9yxpvnve4g0o7tlpn2u0q47dzm8
     secret-key: 7ntr30anwhcay5taeuja2608zcvgzpj4
-
-# BI Agent 调用策略（默认：120秒一次重试，最多10次）
-bi:
-  ai:
-    retry-interval-ms: 120000
-    max-retry: 10
