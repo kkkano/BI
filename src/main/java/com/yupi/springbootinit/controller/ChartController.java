@@ -172,6 +172,9 @@ public class ChartController {
         }
         ChartTaskStatusVO vo = new ChartTaskStatusVO();
         vo.setChartId(chart.getId());
+        vo.setName(chart.getName());
+        vo.setGoal(chart.getGoal());
+        vo.setChartType(chart.getChartType());
         vo.setStatus(chart.getStatus());
         vo.setExecMessage(chart.getExecMessage());
         vo.setGenChart(chart.getGenChart());
