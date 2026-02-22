@@ -277,7 +277,6 @@ public class ChartController {
         String genResult = splits[2].trim();
 
         Chart chart = new Chart();
-        userService.updateUserPointsAndUsageCount(loginUser);
         chart.setStatus(ChartStatusEnum.SUCCEED.getValue());
         chart.setName(name);
         chart.setGoal(goal);
@@ -288,6 +287,8 @@ public class ChartController {
         chart.setUserId(loginUser.getId());
         boolean saveResult = chartService.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+        // 图表保存成功后再扣积分，避免 save 失败时积分已扣
+        userService.updateUserPointsAndUsageCount(loginUser);
 
         BiResponse biResponse = new BiResponse();
         biResponse.setGenChart(genChart);
@@ -339,7 +340,6 @@ public class ChartController {
 
         // 先入库，状态设为等待
         Chart chart = new Chart();
-        userService.updateUserPointsAndUsageCount(loginUser);
         chart.setName(name);
         chart.setGoal(goal);
         chart.setChartData(csvData);
@@ -348,6 +348,8 @@ public class ChartController {
         chart.setUserId(loginUser.getId());
         boolean saveResult = chartService.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+        // 图表保存成功后再扣积分，避免 save 失败时积分已扣
+        userService.updateUserPointsAndUsageCount(loginUser);
 
         // 异步执行 AI 分析
         // 当线程池满时，RejectedExecutionException 会抛出，由全局异常处理器兜底
@@ -428,7 +430,6 @@ public class ChartController {
 
         // 先入库，状态设为等待
         Chart chart = new Chart();
-        userService.updateUserPointsAndUsageCount(loginUser);
         chart.setName(name);
         chart.setGoal(goal);
         chart.setChartData(csvData);
@@ -437,6 +438,8 @@ public class ChartController {
         chart.setUserId(loginUser.getId());
         boolean saveResult = chartService.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+        // 图表保存成功后再扣积分，避免 save 失败时积分已扣
+        userService.updateUserPointsAndUsageCount(loginUser);
 
         // 发送消息到 MQ，由消费者异步处理
         long newChartId = chart.getId();
