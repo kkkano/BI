@@ -248,12 +248,12 @@ public class ChartController {
         String userInput = chartService.buildUserInput(goal, chartType, csvData);
 
         String result = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
-        String[] splits = result.split("【【【【【");
-        if (splits.length < 3) {
+        String[] parsedResult = chartService.parseAiResult(result);
+        if (parsedResult == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成错误");
         }
-        String genChart = splits[1].trim();
-        String genResult = splits[2].trim();
+        String genChart = parsedResult[0];
+        String genResult = parsedResult[1];
 
         Chart chart = new Chart();
         chart.setStatus(ChartStatusEnum.SUCCEED.getValue());
@@ -306,30 +306,22 @@ public class ChartController {
         // 异步执行 AI 分析
         // 当线程池满时，RejectedExecutionException 会抛出，由全局异常处理器兜底
         CompletableFuture.runAsync(() -> {
-            Chart updateChart = new Chart();
-            updateChart.setId(chart.getId());
-            updateChart.setStatus(ChartStatusEnum.RUNNING.getValue());
-            boolean b = chartService.updateById(updateChart);
-            if (!b) {
+            boolean runningUpdated = chartService.updateChartStatusToRunning(chart.getId());
+            if (!runningUpdated) {
                 chartService.handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
                 return;
             }
             // 调用 AI
             String aiResult = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
-            String[] splits = aiResult.split("【【【【【");
-            if (splits.length < 3) {
+            String[] parsedResult = chartService.parseAiResult(aiResult);
+            if (parsedResult == null) {
                 chartService.handleChartUpdateError(chart.getId(), "AI 生成错误");
                 return;
             }
-            String genChart = splits[1].trim();
-            String genResult = splits[2].trim();
-            Chart updateChartResult = new Chart();
-            updateChartResult.setId(chart.getId());
-            updateChartResult.setGenChart(genChart);
-            updateChartResult.setGenResult(genResult);
-            updateChartResult.setStatus(ChartStatusEnum.SUCCEED.getValue());
-            boolean updateResult = chartService.updateById(updateChartResult);
-            if (!updateResult) {
+            String genChart = parsedResult[0];
+            String genResult = parsedResult[1];
+            boolean succeedUpdated = chartService.updateChartResultToSucceed(chart.getId(), genChart, genResult);
+            if (!succeedUpdated) {
                 chartService.handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
             }
         }, threadPoolExecutor);

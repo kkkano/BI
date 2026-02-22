@@ -12,6 +12,11 @@ import com.yupi.springbootinit.model.entity.User;
 public interface ChartService extends IService<Chart> {
 
     /**
+     * AI 返回结果分隔符
+     */
+    String AI_RESULT_DELIMITER = "【【【【【";
+
+    /**
      * 构建 AI 分析所需的用户输入字符串
      *
      * @param goal      分析目标
@@ -36,6 +41,32 @@ public interface ChartService extends IService<Chart> {
      * @param execMessage 错误信息
      */
     void handleChartUpdateError(long chartId, String execMessage);
+
+    /**
+     * 将图表状态更新为 RUNNING
+     *
+     * @param chartId 图表 ID
+     * @return 是否更新成功
+     */
+    boolean updateChartStatusToRunning(long chartId);
+
+    /**
+     * 更新图表生成结果并将状态标记为 SUCCEED
+     *
+     * @param chartId   图表 ID
+     * @param genChart  生成的图表配置
+     * @param genResult 生成的分析结论
+     * @return 是否更新成功
+     */
+    boolean updateChartResultToSucceed(long chartId, String genChart, String genResult);
+
+    /**
+     * 解析 AI 返回文本，提取图表配置和分析结论
+     *
+     * @param aiResult AI 原始返回结果
+     * @return 长度为 2 的数组：index=0 为 genChart，index=1 为 genResult；解析失败返回 null
+     */
+    String[] parseAiResult(String aiResult);
 
     /**
      * 保存图表并扣减一次使用积分（事务保障）

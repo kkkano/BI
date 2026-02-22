@@ -67,7 +67,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
         queryWrapper.eq("isDelete", false);
         queryWrapper.orderBy(SqlUtils.validSortField(sortField),
-                sortOrder.equals(CommonConstant.SORT_ORDER_ASC), sortField);
+                CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
         return queryWrapper;
     }
 
@@ -81,6 +81,33 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (!updated) {
             log.error("更新图表失败状态失败 chartId={}, execMessage={}", chartId, execMessage);
         }
+    }
+
+    @Override
+    public boolean updateChartStatusToRunning(long chartId) {
+        Chart updateChart = new Chart();
+        updateChart.setId(chartId);
+        updateChart.setStatus(ChartStatusEnum.RUNNING.getValue());
+        return updateById(updateChart);
+    }
+
+    @Override
+    public boolean updateChartResultToSucceed(long chartId, String genChart, String genResult) {
+        Chart updateChartResult = new Chart();
+        updateChartResult.setId(chartId);
+        updateChartResult.setGenChart(genChart);
+        updateChartResult.setGenResult(genResult);
+        updateChartResult.setStatus(ChartStatusEnum.SUCCEED.getValue());
+        return updateById(updateChartResult);
+    }
+
+    @Override
+    public String[] parseAiResult(String aiResult) {
+        String[] splits = aiResult.split(AI_RESULT_DELIMITER);
+        if (splits.length < 3) {
+            return null;
+        }
+        return new String[]{splits[1].trim(), splits[2].trim()};
     }
 
     @Override
