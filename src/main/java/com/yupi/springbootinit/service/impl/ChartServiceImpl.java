@@ -2,17 +2,24 @@ package com.yupi.springbootinit.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.constant.CommonConstant;
+import com.yupi.springbootinit.exception.ThrowUtils;
+import com.yupi.springbootinit.mapper.ChartMapper;
 import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
 import com.yupi.springbootinit.model.entity.Chart;
+import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.ChartStatusEnum;
 import com.yupi.springbootinit.service.ChartService;
-import com.yupi.springbootinit.mapper.ChartMapper;
+import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.annotation.Resource;
 
 /**
  * 图表服务实现
@@ -21,6 +28,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         implements ChartService {
+
+    @Resource
+    private UserService userService;
 
     @Override
     public String buildUserInput(String goal, String chartType, String csvData) {
@@ -71,5 +81,13 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (!updated) {
             log.error("更新图表失败状态失败 chartId={}, execMessage={}", chartId, execMessage);
         }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveChartAndDeductPoint(Chart chart, User loginUser) {
+        boolean saveResult = save(chart);
+        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+        userService.updateUserPointsAndUsageCount(loginUser);
     }
 }

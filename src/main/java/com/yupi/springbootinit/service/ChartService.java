@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
 import com.yupi.springbootinit.model.entity.Chart;
+import com.yupi.springbootinit.model.entity.User;
 
 /**
  * 图表服务接口
@@ -35,4 +36,12 @@ public interface ChartService extends IService<Chart> {
      * @param execMessage 错误信息
      */
     void handleChartUpdateError(long chartId, String execMessage);
+
+    /**
+     * 保存图表并扣减一次使用积分（事务保障）
+     *
+     * @param chart     图表实体
+     * @param loginUser 当前登录用户
+     */
+    void saveChartAndDeductPoint(Chart chart, User loginUser);
 }

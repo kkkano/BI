@@ -264,10 +264,8 @@ public class ChartController {
         chart.setGenChart(genChart);
         chart.setGenResult(genResult);
         chart.setUserId(loginUser.getId());
-        boolean saveResult = chartService.save(chart);
-        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
-        // 图表保存成功后再扣积分，避免 save 失败时积分已扣
-        userService.updateUserPointsAndUsageCount(loginUser);
+        // 图表保存与积分扣减同事务执行，保证一致性
+        chartService.saveChartAndDeductPoint(chart, loginUser);
 
         BiResponse biResponse = new BiResponse();
         biResponse.setGenChart(genChart);
