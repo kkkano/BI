@@ -6,6 +6,7 @@ import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.manager.AiManager;
 import com.yupi.springbootinit.model.entity.Chart;
+import com.yupi.springbootinit.model.enums.ChartStatusEnum;
 import com.yupi.springbootinit.service.ChartService;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,10 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 
+/**
+ * BI 消息消费者
+ * 消费 RabbitMQ 消息，调用 AI 生成图表
+ */
 @Component
 @Slf4j
 public class BiMessageConsumer {
@@ -43,10 +48,10 @@ public class BiMessageConsumer {
             channel.basicNack(deliveryTag, false, false);
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图表为空");
         }
-        // 先修改图表任务状态为 “执行中”。等执行成功后，修改为 “已完成”、保存执行结果；执行失败后，状态修改为 “失败”，记录任务失败信息。
+        // 先修改图表任务状态为 "执行中"
         Chart updateChart = new Chart();
         updateChart.setId(chart.getId());
-        updateChart.setStatus("running");
+        updateChart.setStatus(ChartStatusEnum.RUNNING.getValue());
         boolean b = chartService.updateById(updateChart);
         if (!b) {
             channel.basicNack(deliveryTag, false, false);
@@ -67,12 +72,12 @@ public class BiMessageConsumer {
         updateChartResult.setId(chart.getId());
         updateChartResult.setGenChart(genChart);
         updateChartResult.setGenResult(genResult);
-        // todo 建议定义状态为枚举值
-        updateChartResult.setStatus("succeed");
+        updateChartResult.setStatus(ChartStatusEnum.SUCCEED.getValue());
         boolean updateResult = chartService.updateById(updateChartResult);
         if (!updateResult) {
             channel.basicNack(deliveryTag, false, false);
             handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
+            return;
         }
         // 消息确认
         channel.basicAck(deliveryTag, false);
@@ -80,38 +85,45 @@ public class BiMessageConsumer {
 
     /**
      * 构建用户输入
-     * @param chart
-     * @return
+     *
+     * @param chart 图表实体
+     * @return 拼接好的用户输入字符串
      */
     private String buildUserInput(Chart chart) {
         String goal = chart.getGoal();
         String chartType = chart.getChartType();
         String csvData = chart.getChartData();
 
-        // 构造用户输入
         StringBuilder userInput = new StringBuilder();
-        userInput.append("分析需求：").append("\n");
-
-        // 拼接分析目标
+        userInput.append("分析需求：").append("
+");
         String userGoal = goal;
         if (StringUtils.isNotBlank(chartType)) {
             userGoal += "，请使用" + chartType;
         }
-        userInput.append(userGoal).append("\n");
-        userInput.append("原始数据：").append("\n");
-        userInput.append(csvData).append("\n");
+        userInput.append(userGoal).append("
+");
+        userInput.append("原始数据：").append("
+");
+        userInput.append(csvData).append("
+");
         return userInput.toString();
     }
 
+    /**
+     * 处理图表状态更新失败
+     *
+     * @param chartId     图表 ID
+     * @param execMessage 错误信息
+     */
     private void handleChartUpdateError(long chartId, String execMessage) {
         Chart updateChartResult = new Chart();
         updateChartResult.setId(chartId);
-        updateChartResult.setStatus("failed");
-        updateChartResult.setExecMessage("execMessage");
+        updateChartResult.setStatus(ChartStatusEnum.FAILED.getValue());
+        updateChartResult.setExecMessage(execMessage);
         boolean updateResult = chartService.updateById(updateChartResult);
         if (!updateResult) {
-            log.error("更新图表失败状态失败" + chartId + "," + execMessage);
+            log.error("更新图表失败状态失败 chartId={}, execMessage={}", chartId, execMessage);
         }
     }
-
 }
