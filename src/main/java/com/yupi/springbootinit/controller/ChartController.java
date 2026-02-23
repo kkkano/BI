@@ -187,8 +187,10 @@ public class ChartController {
         vo.setChartType(chart.getChartType());
         vo.setStatus(chart.getStatus());
         vo.setExecMessage(chart.getExecMessage());
-        vo.setGenChart(chart.getGenChart());
-        vo.setGenResult(chart.getGenResult());
+        if (ChartStatusEnum.SUCCEED.getValue().equals(chart.getStatus())) {
+            vo.setGenChart(chart.getGenChart());
+            vo.setGenResult(chart.getGenResult());
+        }
         vo.setCreateTime(chart.getCreateTime());
         vo.setUpdateTime(chart.getUpdateTime());
         return ResultUtils.success(vo);
@@ -198,7 +200,8 @@ public class ChartController {
      * 分页获取图表列表
      */
     @PostMapping("/list/page")
-    @ApiOperation(value = "分页获取图表列表")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @ApiOperation(value = "分页获取图表列表（管理员）")
     public BaseResponse<Page<Chart>> listChartByPage(@RequestBody @Valid ChartQueryRequest chartQueryRequest,
                                                      HttpServletRequest request) {
         ThrowUtils.throwIf(chartQueryRequest == null, ErrorCode.PARAMS_ERROR);
