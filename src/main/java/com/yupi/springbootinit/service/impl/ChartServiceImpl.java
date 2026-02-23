@@ -117,4 +117,22 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
         userService.updateUserPointsAndUsageCount(loginUser);
     }
+
+    @Override
+    public Chart buildWaitChart(String name, String goal, String chartType, String csvData, Long userId) {
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setStatus(ChartStatusEnum.WAIT.getValue());
+        chart.setUserId(userId);
+        return chart;
+    }
+
+    @Override
+    public void saveWaitChart(Chart chart) {
+        boolean saveResult = save(chart);
+        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+    }
 }

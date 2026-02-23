@@ -75,4 +75,23 @@ public interface ChartService extends IService<Chart> {
      * @param loginUser 当前登录用户
      */
     void saveChartAndDeductPoint(Chart chart, User loginUser);
+
+    /**
+     * 构造待入库的图表实体（等待状态）
+     *
+     * @param name      图表名称
+     * @param goal      分析目标
+     * @param chartType 图表类型
+     * @param csvData   原始数据
+     * @param userId    用户 ID
+     * @return 待保存图表
+     */
+    Chart buildWaitChart(String name, String goal, String chartType, String csvData, Long userId);
+
+    /**
+     * 保存等待中的图表记录
+     *
+     * @param chart 图表实体
+     */
+    void saveWaitChart(Chart chart);
 }
