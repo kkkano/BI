@@ -27,12 +27,14 @@ import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -46,6 +48,7 @@ import java.util.concurrent.RejectedExecutionException;
 @RestController
 @RequestMapping("/chart")
 @Slf4j
+@Validated
 @Api(tags = "图表管理")
 public class ChartController {
 
@@ -79,7 +82,7 @@ public class ChartController {
      */
     @PostMapping("/add")
     @ApiOperation(value = "创建图表")
-    public BaseResponse<Long> addChart(@RequestBody ChartAddRequest chartAddRequest, HttpServletRequest request) {
+    public BaseResponse<Long> addChart(@RequestBody @Valid ChartAddRequest chartAddRequest, HttpServletRequest request) {
         if (chartAddRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -120,7 +123,7 @@ public class ChartController {
     @PostMapping("/update")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @ApiOperation(value = "更新图表（管理员）")
-    public BaseResponse<Boolean> updateChart(@RequestBody ChartUpdateRequest chartUpdateRequest) {
+    public BaseResponse<Boolean> updateChart(@RequestBody @Valid ChartUpdateRequest chartUpdateRequest) {
         if (chartUpdateRequest == null || chartUpdateRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -141,7 +144,8 @@ public class ChartController {
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "图表 id", required = true, dataType = "long", paramType = "query")
     })
-    public BaseResponse<Chart> getChartById(long id, HttpServletRequest request) {
+    public BaseResponse<Chart> getChartById(@RequestParam("id") @Min(value = 1, message = "图表 id 非法") long id,
+                                            HttpServletRequest request) {
         if (id <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -161,7 +165,8 @@ public class ChartController {
     @ApiImplicitParams({
             @ApiImplicitParam(name = "chartId", value = "图表 id", required = true, dataType = "long", paramType = "query")
     })
-    public BaseResponse<ChartTaskStatusVO> getChartTaskStatus(long chartId, HttpServletRequest request) {
+    public BaseResponse<ChartTaskStatusVO> getChartTaskStatus(@RequestParam("chartId") @Min(value = 1, message = "图表 id 非法") long chartId,
+                                                         HttpServletRequest request) {
         ThrowUtils.throwIf(chartId <= 0, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
         Chart chart = chartService.getById(chartId);
@@ -179,6 +184,8 @@ public class ChartController {
         vo.setExecMessage(chart.getExecMessage());
         vo.setGenChart(chart.getGenChart());
         vo.setGenResult(chart.getGenResult());
+        vo.setCreateTime(chart.getCreateTime());
+        vo.setUpdateTime(chart.getUpdateTime());
         return ResultUtils.success(vo);
     }
 
@@ -187,13 +194,12 @@ public class ChartController {
      */
     @PostMapping("/list/page")
     @ApiOperation(value = "分页获取图表列表")
-    public BaseResponse<Page<Chart>> listChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
+    public BaseResponse<Page<Chart>> listChartByPage(@RequestBody @Valid ChartQueryRequest chartQueryRequest,
                                                      HttpServletRequest request) {
         ThrowUtils.throwIf(chartQueryRequest == null, ErrorCode.PARAMS_ERROR);
         long current = chartQueryRequest.getCurrent();
         long size = chartQueryRequest.getPageSize();
-        // 限制爬虫
-        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
+        validatePageParams(current, size);
         Page<Chart> chartPage = chartService.page(new Page<>(current, size),
                 chartService.getQueryWrapper(chartQueryRequest));
         return ResultUtils.success(chartPage);
@@ -204,7 +210,7 @@ public class ChartController {
      */
     @PostMapping("/my/list/page")
     @ApiOperation(value = "分页获取当前用户图表列表")
-    public BaseResponse<Page<Chart>> listMyChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
+    public BaseResponse<Page<Chart>> listMyChartByPage(@RequestBody @Valid ChartQueryRequest chartQueryRequest,
                                                        HttpServletRequest request) {
         if (chartQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -213,8 +219,7 @@ public class ChartController {
         chartQueryRequest.setUserId(loginUser.getId());
         long current = chartQueryRequest.getCurrent();
         long size = chartQueryRequest.getPageSize();
-        // 限制爬虫
-        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
+        validatePageParams(current, size);
         Page<Chart> chartPage = chartService.page(new Page<>(current, size),
                 chartService.getQueryWrapper(chartQueryRequest));
         return ResultUtils.success(chartPage);
@@ -227,7 +232,8 @@ public class ChartController {
      */
     @PostMapping("/edit")
     @ApiOperation(value = "编辑图表（用户）")
-    public BaseResponse<Boolean> editChart(@RequestBody ChartEditRequest chartEditRequest, HttpServletRequest request) {
+    public BaseResponse<Boolean> editChart(@RequestBody @Valid ChartEditRequest chartEditRequest,
+                                           HttpServletRequest request) {
         if (chartEditRequest == null || chartEditRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -372,10 +378,23 @@ public class ChartController {
      * 校验 gen 接口通用参数（文件大小与后缀）
      */
     private void validateUploadFile(MultipartFile multipartFile) {
+        ThrowUtils.throwIf(multipartFile == null || multipartFile.isEmpty(),
+                ErrorCode.PARAMS_ERROR, "上传文件不能为空");
         ThrowUtils.throwIf(multipartFile.getSize() > MAX_FILE_SIZE, ErrorCode.PARAMS_ERROR, "文件超过 1M");
-        String suffix = FileUtil.getSuffix(multipartFile.getOriginalFilename());
-        ThrowUtils.throwIf(!VALID_FILE_SUFFIXES.contains(suffix.toLowerCase(Locale.ROOT)),
+        String originalFilename = multipartFile.getOriginalFilename();
+        ThrowUtils.throwIf(originalFilename == null, ErrorCode.PARAMS_ERROR, "文件名非法");
+        String suffix = FileUtil.getSuffix(originalFilename);
+        ThrowUtils.throwIf(suffix == null || !VALID_FILE_SUFFIXES.contains(suffix.toLowerCase(Locale.ROOT)),
                 ErrorCode.PARAMS_ERROR, "文件后缀非法");
+    }
+
+    /**
+     * 校验分页参数并限制 pageSize，避免异常值导致全表扫描
+     */
+    private void validatePageParams(long current, long size) {
+        ThrowUtils.throwIf(current <= 0 || size <= 0, ErrorCode.PARAMS_ERROR, "分页参数非法");
+        // 限制爬虫
+        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
     }
 
     /**

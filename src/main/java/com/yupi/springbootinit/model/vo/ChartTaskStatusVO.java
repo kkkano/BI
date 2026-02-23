@@ -3,6 +3,7 @@ package com.yupi.springbootinit.model.vo;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.Date;
 
 /**
  * 图表任务状态响应
@@ -29,6 +30,12 @@ public class ChartTaskStatusVO implements Serializable {
     private String genChart;
 
     private String genResult;
+
+    /** 任务创建时间 */
+    private Date createTime;
+
+    /** 任务最近更新时间 */
+    private Date updateTime;
 
     private static final long serialVersionUID = 1L;
 }
