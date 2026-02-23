@@ -22,7 +22,8 @@ public enum ErrorCode {
     CHART_TASK_AI_GENERATE_FAILED(50012, "AI 生成图表结果失败"),
     CHART_TASK_SUCCEED_UPDATE_FAILED(50013, "图表任务状态更新失败（已完成）"),
     CHART_TASK_EXECUTE_EXCEPTION(50014, "图表任务执行异常"),
-    CHART_TASK_MESSAGE_SEND_FAILED(50015, "图表任务投递失败，请稍后重试");
+    CHART_TASK_MESSAGE_SEND_FAILED(50015, "图表任务投递失败，请稍后重试"),
+    AI_CIRCUIT_BREAKER_OPEN(50016, "AI 服务暂时不可用，请稍后重试");
 
     /**
      * 状态码

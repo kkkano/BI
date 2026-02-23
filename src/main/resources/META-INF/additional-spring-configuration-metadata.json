@@ -29,6 +29,26 @@
       "name": "wx.open.appSecret",
       "type": "java.lang.String",
       "description": "Description for wx.open.appSecret."
+    },
+    {
+      "name": "ai.circuit-breaker.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to enable AI circuit breaker protection."
+    },
+    {
+      "name": "ai.circuit-breaker.failure-threshold",
+      "type": "java.lang.Integer",
+      "description": "Consecutive failures required before opening the breaker."
+    },
+    {
+      "name": "ai.circuit-breaker.open-duration-seconds",
+      "type": "java.lang.Integer",
+      "description": "How long the breaker stays open before probing."
+    },
+    {
+      "name": "ai.circuit-breaker.half-open-success-threshold",
+      "type": "java.lang.Integer",
+      "description": "Consecutive probe successes needed to close the breaker."
     }
   ]
 }

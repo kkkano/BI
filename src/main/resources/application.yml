@@ -102,3 +102,10 @@ yuapi:
   client:
     access-key: 97iar9yxpvnve4g0o7tlpn2u0q47dzm8
     secret-key: 7ntr30anwhcay5taeuja2608zcvgzpj4
+
+ai:
+  circuit-breaker:
+    enabled: true
+    failure-threshold: 3
+    open-duration-seconds: 30
+    half-open-success-threshold: 1
