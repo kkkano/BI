@@ -416,7 +416,9 @@ public class ChartController {
      * 校验积分并执行限流
      */
     private void checkPointsAndRateLimit(User loginUser) {
-        if (loginUser.getPoints() < 1) {
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        Integer points = loginUser.getPoints();
+        if (points == null || points < 1) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "积分不足，无法使用此服务");
         }
         redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
