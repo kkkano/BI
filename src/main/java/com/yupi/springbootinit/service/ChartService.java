@@ -78,6 +78,14 @@ public interface ChartService extends IService<Chart> {
     String[] parseAiResult(String aiResult);
 
     /**
+     * 同步执行 AI 分析并组装响应所需字段
+     *
+     * @param userInput AI 输入内容
+     * @return 长度为 2 的数组：index=0 为 genChart，index=1 为 genResult；失败返回 null
+     */
+    String[] generateChartAndResult(String userInput);
+
+    /**
      * 保存图表并扣减一次使用积分（事务保障）
      *
      * @param chart     图表实体

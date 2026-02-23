@@ -106,8 +106,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
             return false;
         }
 
-        String aiResult = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
-        String[] parsedResult = parseAiResult(aiResult);
+        String[] parsedResult = generateChartAndResult(userInput);
         if (parsedResult == null) {
             handleChartUpdateError(chartId, "AI 生成错误");
             return false;
@@ -119,6 +118,12 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
             return false;
         }
         return true;
+    }
+
+    @Override
+    public String[] generateChartAndResult(String userInput) {
+        String aiResult = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
+        return parseAiResult(aiResult);
     }
 
     @Override

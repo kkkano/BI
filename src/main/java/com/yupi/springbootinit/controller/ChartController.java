@@ -8,11 +8,9 @@ import com.yupi.springbootinit.common.BaseResponse;
 import com.yupi.springbootinit.common.DeleteRequest;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.common.ResultUtils;
-import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
-import com.yupi.springbootinit.manager.AiManager;
 import com.yupi.springbootinit.manager.RedisLimiterManager;
 import com.yupi.springbootinit.model.dto.chart.*;
 import com.yupi.springbootinit.model.entity.Chart;
@@ -58,8 +56,6 @@ public class ChartController {
     @Resource
     private UserService userService;
 
-    @Resource
-    private AiManager aiManager;
 
     @Resource
     private RedisLimiterManager redisLimiterManager;
@@ -248,8 +244,7 @@ public class ChartController {
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         String userInput = chartService.buildUserInput(goal, chartType, csvData);
 
-        String result = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
-        String[] parsedResult = chartService.parseAiResult(result);
+        String[] parsedResult = chartService.generateChartAndResult(userInput);
         if (parsedResult == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成错误");
         }
