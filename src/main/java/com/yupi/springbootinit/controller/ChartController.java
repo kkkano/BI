@@ -154,6 +154,10 @@ public class ChartController {
         if (chart == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
+        User loginUser = userService.getLoginUser(request);
+        if (!chart.getUserId().equals(loginUser.getId()) && !userService.isAdmin(request)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
         return ResultUtils.success(chart);
     }
 

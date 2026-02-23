@@ -42,5 +42,8 @@ public class ChartQueryRequest extends PageRequest implements Serializable {
     @Positive(message = "用户 id 非法")
     private Long userId;
 
+    /** 是否返回原始 chartData（默认 false，避免分页接口返回超大字段） */
+    private Boolean needChartData;
+
     private static final long serialVersionUID = 1L;
 }

@@ -67,6 +67,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String chartType = chartQueryRequest.getChartType();
         String status = chartQueryRequest.getStatus();
         Long userId = chartQueryRequest.getUserId();
+        Boolean needChartData = chartQueryRequest.getNeedChartData();
         String sortField = chartQueryRequest.getSortField();
         String sortOrder = chartQueryRequest.getSortOrder();
 
@@ -77,6 +78,10 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         queryWrapper.eq(StringUtils.isNotBlank(status), "status", status);
         queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
         queryWrapper.eq("isDelete", false);
+        if (!Boolean.TRUE.equals(needChartData)) {
+            queryWrapper.select("id", "name", "goal", "chartType", "genChart", "genResult",
+                    "status", "execMessage", "userId", "createTime", "updateTime");
+        }
         queryWrapper.orderBy(SqlUtils.validSortField(sortField),
                 CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
         return queryWrapper;
