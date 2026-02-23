@@ -159,7 +159,7 @@ public interface ChartService extends IService<Chart> {
      *
      * @param req       生成请求参数
      * @param loginUser 当前登录用户
-     * @return 生成结果（含 chartId / genChart / genResult）
+     * @return 生成结果（含 chartId / 状态 / 图表元信息 / 生成结果）
      */
     com.yupi.springbootinit.model.vo.BiResponse generateChartSync(GenChartRequest req, User loginUser);
 
@@ -168,7 +168,7 @@ public interface ChartService extends IService<Chart> {
      *
      * @param req       生成请求参数
      * @param loginUser 当前登录用户
-     * @return 任务信息（仅 chartId）
+     * @return 任务信息（含 chartId / 初始状态 / 图表元信息）
      */
     com.yupi.springbootinit.model.vo.BiResponse createAsyncThreadTask(GenChartRequest req, User loginUser);
 
@@ -177,7 +177,7 @@ public interface ChartService extends IService<Chart> {
      *
      * @param req       生成请求参数
      * @param loginUser 当前登录用户
-     * @return 任务信息（仅 chartId）
+     * @return 任务信息（含 chartId / 初始状态 / 图表元信息）
      */
     com.yupi.springbootinit.model.vo.BiResponse createAsyncMqTask(GenChartRequest req, User loginUser);
 }

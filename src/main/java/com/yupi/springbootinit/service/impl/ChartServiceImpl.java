@@ -229,8 +229,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (parsedResult == null) {
             return null;
         }
-        BiResponse biResponse = new BiResponse();
-        biResponse.setChartId(chart.getId());
+        BiResponse biResponse = buildBiResponseFromChart(chart);
+        biResponse.setStatus(ChartStatusEnum.SUCCEED.getValue());
         biResponse.setGenChart(parsedResult[0]);
         biResponse.setGenResult(parsedResult[1]);
         return biResponse;
@@ -239,17 +239,13 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     @Override
     public BiResponse createAsyncThreadTask(GenChartRequest req, User loginUser) {
         Chart chart = createChartWithWaitStatus(req, loginUser);
-        BiResponse biResponse = new BiResponse();
-        biResponse.setChartId(chart.getId());
-        return biResponse;
+        return buildBiResponseFromChart(chart);
     }
 
     @Override
     public BiResponse createAsyncMqTask(GenChartRequest req, User loginUser) {
         Chart chart = createChartWithWaitStatus(req, loginUser);
-        BiResponse biResponse = new BiResponse();
-        biResponse.setChartId(chart.getId());
-        return biResponse;
+        return buildBiResponseFromChart(chart);
     }
 
     @Override
@@ -284,6 +280,19 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     public void saveWaitChart(Chart chart) {
         boolean saveResult = save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+    }
+
+    private BiResponse buildBiResponseFromChart(Chart chart) {
+        BiResponse biResponse = new BiResponse();
+        biResponse.setChartId(chart.getId());
+        biResponse.setName(chart.getName());
+        biResponse.setGoal(chart.getGoal());
+        biResponse.setChartType(chart.getChartType());
+        biResponse.setStatus(chart.getStatus());
+        biResponse.setExecMessage(chart.getExecMessage());
+        biResponse.setCreateTime(chart.getCreateTime());
+        biResponse.setUpdateTime(chart.getUpdateTime());
+        return biResponse;
     }
 
     private String buildStandardExecMessage(long chartId, String execMessage) {
