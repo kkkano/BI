@@ -46,9 +46,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * 图表接口
@@ -355,6 +356,14 @@ public class ChartController {
 
         User loginUser = userService.getLoginUser(request);
         checkPointsAndRateLimit(loginUser);
+        if (isAsyncExecutorSaturated()) {
+            log.warn("线程池繁忙，拒绝创建异步图表任务 userId={}, activeCount={}, maxPoolSize={}, queueRemainingCapacity={}",
+                    loginUser.getId(),
+                    threadPoolExecutor.getActiveCount(),
+                    threadPoolExecutor.getMaximumPoolSize(),
+                    getExecutorQueueRemainingCapacity());
+            throw new BusinessException(ErrorCode.CHART_TASK_REJECTED);
+        }
 
         String csvData = parseUploadFileToCsv(multipartFile);
         String userInput = chartService.buildUserInput(goal, chartType, csvData);
@@ -495,6 +504,28 @@ public class ChartController {
         ThrowUtils.throwIf(current <= 0 || size <= 0, ErrorCode.PARAMS_ERROR, "分页参数非法");
         // 限制爬虫
         ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
+    }
+
+    /**
+     * 判断异步执行器是否已饱和（线程池线程占满且队列无剩余容量）
+     */
+    private boolean isAsyncExecutorSaturated() {
+        if (threadPoolExecutor == null) {
+            return false;
+        }
+        return threadPoolExecutor.getActiveCount() >= threadPoolExecutor.getMaximumPoolSize()
+                && getExecutorQueueRemainingCapacity() <= 0;
+    }
+
+    private int getExecutorQueueRemainingCapacity() {
+        if (threadPoolExecutor == null) {
+            return Integer.MAX_VALUE;
+        }
+        BlockingQueue<Runnable> queue = threadPoolExecutor.getQueue();
+        if (queue == null) {
+            return Integer.MAX_VALUE;
+        }
+        return queue.remainingCapacity();
     }
 
     /**

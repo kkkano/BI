@@ -183,7 +183,7 @@ class ChartControllerTaskStatusTest {
 
         when(userService.getLoginUser(request)).thenReturn(loginUser);
         when(userService.isAdmin(request)).thenReturn(false);
-        when(chartService.list(any())).thenReturn(Arrays.asList());
+        when(chartService.list(any())).thenReturn(Collections.emptyList());
 
         chartController.getChartTaskStatusBatch(batchRequest, request);
 
@@ -201,7 +201,7 @@ class ChartControllerTaskStatusTest {
 
         when(userService.getLoginUser(request)).thenReturn(loginUser);
         when(userService.isAdmin(request)).thenReturn(true);
-        when(chartService.list(any())).thenReturn(Arrays.asList());
+        when(chartService.list(any())).thenReturn(Collections.emptyList());
 
         chartController.getChartTaskStatusBatch(batchRequest, request);
 
