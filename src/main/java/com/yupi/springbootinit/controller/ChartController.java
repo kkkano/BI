@@ -36,9 +36,15 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.RejectedExecutionException;
@@ -111,7 +117,7 @@ public class ChartController {
         Chart oldChart = chartService.getById(id);
         ThrowUtils.throwIf(oldChart == null, ErrorCode.NOT_FOUND_ERROR);
         // 仅本人或管理员可删除
-        if (!oldChart.getUserId().equals(user.getId()) && !userService.isAdmin(request)) {
+        if (!Objects.equals(oldChart.getUserId(), user.getId()) && !userService.isAdmin(request)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         boolean b = chartService.removeById(id);
@@ -155,7 +161,7 @@ public class ChartController {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
         User loginUser = userService.getLoginUser(request);
-        if (!chart.getUserId().equals(loginUser.getId()) && !userService.isAdmin(request)) {
+        if (!Objects.equals(chart.getUserId(), loginUser.getId()) && !userService.isAdmin(request)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         return ResultUtils.success(chart);
@@ -177,23 +183,46 @@ public class ChartController {
         Chart chart = chartService.getById(chartId);
         ThrowUtils.throwIf(chart == null, ErrorCode.NOT_FOUND_ERROR);
         // 仅本人或管理员可看任务详情
-        if (!chart.getUserId().equals(loginUser.getId()) && !userService.isAdmin(request)) {
+        if (!Objects.equals(chart.getUserId(), loginUser.getId()) && !userService.isAdmin(request)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
-        ChartTaskStatusVO vo = new ChartTaskStatusVO();
-        vo.setChartId(chart.getId());
-        vo.setName(chart.getName());
-        vo.setGoal(chart.getGoal());
-        vo.setChartType(chart.getChartType());
-        vo.setStatus(chart.getStatus());
-        vo.setExecMessage(chart.getExecMessage());
-        if (ChartStatusEnum.SUCCEED.getValue().equals(chart.getStatus())) {
-            vo.setGenChart(chart.getGenChart());
-            vo.setGenResult(chart.getGenResult());
+        return ResultUtils.success(buildTaskStatusVO(chart));
+    }
+
+    /**
+     * 批量获取图表任务状态（轻量轮询接口）
+     * 仅返回任务状态相关字段，减少多任务并发轮询时的请求开销
+     */
+    @PostMapping("/task/status/batch")
+    @ApiOperation(value = "批量获取图表任务状态")
+    public BaseResponse<List<ChartTaskStatusVO>> getChartTaskStatusBatch(
+            @RequestBody @Valid ChartTaskStatusBatchRequest batchRequest,
+            HttpServletRequest request) {
+        ThrowUtils.throwIf(batchRequest == null, ErrorCode.PARAMS_ERROR);
+        Set<Long> chartIdSet = new LinkedHashSet<>(batchRequest.getChartIds());
+        ThrowUtils.throwIf(chartIdSet.isEmpty(), ErrorCode.PARAMS_ERROR);
+
+        User loginUser = userService.getLoginUser(request);
+        boolean isAdmin = userService.isAdmin(request);
+
+        List<Chart> charts = chartService.listByIds(chartIdSet);
+        Map<Long, Chart> chartMap = new HashMap<>(charts.size());
+        for (Chart chart : charts) {
+            chartMap.put(chart.getId(), chart);
         }
-        vo.setCreateTime(chart.getCreateTime());
-        vo.setUpdateTime(chart.getUpdateTime());
-        return ResultUtils.success(vo);
+
+        List<ChartTaskStatusVO> responseList = new ArrayList<>();
+        for (Long chartId : chartIdSet) {
+            Chart chart = chartMap.get(chartId);
+            if (chart == null) {
+                continue;
+            }
+            if (!isAdmin && !Objects.equals(chart.getUserId(), loginUser.getId())) {
+                continue;
+            }
+            responseList.add(buildTaskStatusVO(chart));
+        }
+        return ResultUtils.success(responseList);
     }
 
     /**
@@ -252,7 +281,7 @@ public class ChartController {
         Chart oldChart = chartService.getById(id);
         ThrowUtils.throwIf(oldChart == null, ErrorCode.NOT_FOUND_ERROR);
         // 仅本人或管理员可编辑
-        if (!oldChart.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)) {
+        if (!Objects.equals(oldChart.getUserId(), loginUser.getId()) && !userService.isAdmin(loginUser)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         boolean result = chartService.updateById(chart);
@@ -381,6 +410,26 @@ public class ChartController {
     }
 
     // region 私有工具方法
+
+    /**
+     * 构建任务状态响应，任务未成功时不返回生成内容
+     */
+    private ChartTaskStatusVO buildTaskStatusVO(Chart chart) {
+        ChartTaskStatusVO vo = new ChartTaskStatusVO();
+        vo.setChartId(chart.getId());
+        vo.setName(chart.getName());
+        vo.setGoal(chart.getGoal());
+        vo.setChartType(chart.getChartType());
+        vo.setStatus(chart.getStatus());
+        vo.setExecMessage(chart.getExecMessage());
+        if (ChartStatusEnum.SUCCEED.getValue().equals(chart.getStatus())) {
+            vo.setGenChart(chart.getGenChart());
+            vo.setGenResult(chart.getGenResult());
+        }
+        vo.setCreateTime(chart.getCreateTime());
+        vo.setUpdateTime(chart.getUpdateTime());
+        return vo;
+    }
 
     /**
      * 校验 gen 接口通用参数（文件大小与后缀）
