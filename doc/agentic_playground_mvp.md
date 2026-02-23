@@ -326,44 +326,92 @@ queued -> deciding
 
 ---
 
-## 5. MVP 里程碑（1周 / 2周）
+## 5. 第 1 周 MVP 可执行任务拆分（含验收标准）
 
-## 第 1 周（可上线最小闭环）
+> 目标：在 5 个工作日内交付“可提交 -> 可观察 -> 可验证”的 Agent Playground 最小闭环。
 
-交付目标：完成决策路由 + 搜索网关 + 统一解析最小能力（CSV/Excel先落地，PDF/DOCX先文本）
+### Task W1-01：阶段枚举落地（后端状态机）
 
-- Day 1-2
-  - 新建 `AgentDecisionController` + `SearchGatewayController`
-  - 落地路由评分规则与阈值常量
-- Day 3-4
-  - 建 `ingest_file / parsed_dataset / document_chunk / agent_search_log` 表
-  - 提供 `POST /ingest/files` + `/parse` + `/datasets`
-- Day 5
-  - 与现有 `ChartService` 串联：支持 `datasetId` 优先
-  - 增加日志字段：`decision`, `reasonCodes`, `searchCount`
+- 范围
+  - 新增 `AgentTaskStatusEnum`：`queued/deciding/planning/acting/searching/synthesizing/succeed/failed/cancelled`
+  - 在任务状态写入链路增加合法跳转校验（拒绝非法状态迁移）
+  - 建立 `AgentTaskStatusEnum -> ChartStatusEnum` 映射，保证旧接口兼容
+- 代码落点
+  - `src/main/java/com/yupi/springbootinit/model/enums/AgentTaskStatusEnum.java`
+  - `src/main/java/com/yupi/springbootinit/service/*TaskState*`（新增或改造状态流转服务）
+  - `src/main/java/com/yupi/springbootinit/controller/ChartController.java`（返回子状态字段）
+- 验收标准
+  1. 单元测试覆盖全部允许/禁止的状态迁移（>= 12 条断言）
+  2. `/chart/task/status` 响应新增 `taskPhase` 字段，旧字段 `status` 不回归
+  3. 非法迁移返回明确错误码（如 `TASK_PHASE_TRANSITION_INVALID`）并写入日志
 
-验收标准：
-- 至少 20 个样例任务中，路由结果可解释（返回 `matchedRules`）
-- 网关拒绝与放行都有日志；同 query 去重生效
-- CSV/Excel 解析成功率 >= 95%，PDF/DOCX 文本抽取成功率 >= 85%
+### Task W1-02：上下文集成（决策 + 搜索 + 数据集）
 
-## 第 2 周（稳定性与前端可用）
+- 范围
+  - 在任务上下文对象中收敛 `decision/search/dataset` 三类信息
+  - 路由决策结果写入上下文：`decision/complexityScore/matchedRules`
+  - 搜索网关结果写入上下文：`searchDecision/reasonCodes/remainingQuota`
+  - 数据输入优先读取 `datasetId`，缺省时回退 `chartData`
+- 代码落点
+  - `src/main/java/com/yupi/springbootinit/model/dto/chart/ChartTaskContext.java`
+  - `src/main/java/com/yupi/springbootinit/service/impl/ChartServiceImpl.java`
+  - `src/main/java/com/yupi/springbootinit/controller/AgentDecisionController.java`
+  - `src/main/java/com/yupi/springbootinit/controller/SearchGatewayController.java`
+- 验收标准
+  1. 任一异步任务都可在持久化记录中看到 `decision + reasonCodes + datasetId`
+  2. `datasetId` 存在时不再读取 `chartData` 作为首选输入
+  3. 至少 10 条样例请求回放可复现相同路由与搜索决策（幂等）
 
-交付目标：完善状态机可视化与失败恢复
+### Task W1-03：前端展示（任务阶段可视化）
 
-- Day 6-7
-  - 增加 `AgentTaskStatusEnum` 持久化（可挂在 chart 扩展表或新表）
-  - 前端轮询复用 `/chart/task/status` 并透出 agent 子状态
-- Day 8-9
-  - 增加失败重试策略：`searching`、`acting` 各最多重试 2 次
-  - 增加超时控制：单步 15s、全任务 120s
-- Day 10
-  - 压测与回归：100 并发任务下状态一致性、超时率、失败率
+- 范围
+  - 在异步图表任务列表与详情页展示 `taskPhase`（中文标签 + 时间线）
+  - 为 `searching/failed/cancelled` 增加差异化 UI 提示（图标与文案）
+  - 轮询接口对接 `taskPhase` 与 `execMessage`，失败态支持展开错误原因
+- 代码落点
+  - `BI-front/src/pages/AddChart/index.tsx`
+  - `BI-front/src/components/ChartTaskProgress/*`
+  - `BI-front/src/services/chartController.ts`
+- 验收标准
+  1. 前端可正确展示 8 种阶段，且 `running` 期间能看到实时子阶段变化
+  2. 失败任务展示“阶段 + 错误码 + 错误信息”，可复制问题定位文本
+  3. 移动端与桌面端均不出现布局溢出（375px 与 1440px 基线验证）
 
-验收标准：
-- 100 并发下，任务状态机无非法跳转
-- 外部搜索平均延迟可观测（P95）
-- 失败任务 `execMessage` 可直接定位（含阶段 + 错误码）
+### Task W1-04：契约测试（接口与前端联调基线）
+
+- 范围
+  - 为 `/agent/decision/route`、`/agent/search/gateway/evaluate`、`/chart/task/status` 补充契约测试
+  - 固化关键字段类型、必填项与向后兼容字段（`status`）
+  - 增加前端 mock 契约快照，防止字段漂移导致渲染失败
+- 代码落点
+  - `src/test/java/com/yupi/springbootinit/controller/AgentDecisionControllerContractTest.java`
+  - `src/test/java/com/yupi/springbootinit/controller/SearchGatewayControllerContractTest.java`
+  - `src/test/java/com/yupi/springbootinit/controller/ChartTaskStatusContractTest.java`
+  - `BI-front/src/__tests__/contract/chart-task-status.contract.spec.ts`
+- 验收标准
+  1. 契约测试覆盖成功/失败/降级三类响应样例，每类 >= 2 条
+  2. CI 中契约测试默认执行，失败时阻断合并
+  3. 字段 `taskPhase/matchedRules/reasonCodes` 任一缺失时测试必然失败
+
+### W1 日程排布（建议）
+
+- Day 1：完成 W1-01 设计与后端枚举落地
+- Day 2：完成 W1-02 的上下文对象与后端写链路
+- Day 3：完成 W1-03 前端展示与轮询接入
+- Day 4：完成 W1-04 契约测试 + 前后端联调
+- Day 5：回归测试、修复、发布说明与验收走查
+
+### 本周完成定义（DoD）
+
+- 端到端流程可跑通：提交任务 -> 查看阶段推进 -> 成功/失败可解释
+- 后端关键链路具备日志与测试护栏：状态迁移、决策路由、搜索网关
+- 前端展示与接口契约一致，主流程无阻断缺陷
+
+### 非本周范围（放入下一迭代）
+
+- `searching/acting` 自动重试策略
+- 100 并发压测与 P95 可观测性看板
+- PDF/DOCX 表格结构化精度优化
 
 ---
 
