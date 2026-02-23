@@ -16,7 +16,12 @@ public enum ErrorCode {
     FORBIDDEN_ERROR(40300, "禁止访问"),
     TOO_MANY_REQUEST(42900, "请求过于频繁"),
     SYSTEM_ERROR(50000, "系统内部异常"),
-    OPERATION_ERROR(50001, "操作失败");
+    OPERATION_ERROR(50001, "操作失败"),
+    CHART_TASK_REJECTED(50010, "图表任务提交失败，系统繁忙"),
+    CHART_TASK_RUNNING_UPDATE_FAILED(50011, "图表任务状态更新失败（执行中）"),
+    CHART_TASK_AI_GENERATE_FAILED(50012, "AI 生成图表结果失败"),
+    CHART_TASK_SUCCEED_UPDATE_FAILED(50013, "图表任务状态更新失败（已完成）"),
+    CHART_TASK_EXECUTE_EXCEPTION(50014, "图表任务执行异常");
 
     /**
      * 状态码

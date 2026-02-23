@@ -112,19 +112,25 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     public boolean executeChartGeneration(long chartId, String userInput) {
         boolean runningUpdated = updateChartStatusToRunning(chartId);
         if (!runningUpdated) {
-            handleChartUpdateError(chartId, "更新图表执行中状态失败");
+            handleChartUpdateError(chartId,
+                    ErrorCode.CHART_TASK_RUNNING_UPDATE_FAILED.getCode() + ": " +
+                            ErrorCode.CHART_TASK_RUNNING_UPDATE_FAILED.getMessage());
             return false;
         }
 
         String[] parsedResult = generateAndParseChartResult(userInput);
         if (parsedResult == null) {
-            handleChartUpdateError(chartId, "AI 生成错误");
+            handleChartUpdateError(chartId,
+                    ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getCode() + ": " +
+                            ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getMessage());
             return false;
         }
 
         boolean succeedUpdated = updateChartResultToSucceed(chartId, parsedResult[0], parsedResult[1]);
         if (!succeedUpdated) {
-            handleChartUpdateError(chartId, "更新图表成功状态失败");
+            handleChartUpdateError(chartId,
+                    ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getCode() + ": " +
+                            ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getMessage());
             return false;
         }
         return true;

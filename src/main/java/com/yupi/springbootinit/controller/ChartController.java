@@ -322,14 +322,17 @@ public class ChartController {
                 } catch (Exception e) {
                     log.error("异步生成图表异常，chartId={}, userId={}, status={}",
                             chart.getId(), loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
-                    chartService.handleChartUpdateError(chart.getId(), "图表生成异常：" + e.getMessage());
+                    chartService.handleChartUpdateError(chart.getId(),
+                            ErrorCode.CHART_TASK_EXECUTE_EXCEPTION.getCode() + ": " +
+                                    ErrorCode.CHART_TASK_EXECUTE_EXCEPTION.getMessage() + " - " + e.getMessage());
                 }
             }, threadPoolExecutor);
         } catch (RejectedExecutionException e) {
             log.error("线程池繁忙，异步任务提交失败，chartId={}, userId={}, status={}",
                     chart.getId(), loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
-            chartService.handleChartUpdateError(chart.getId(), "系统繁忙，请稍后重试");
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "当前系统繁忙，请稍后重试");
+            chartService.handleChartUpdateError(chart.getId(),
+                    ErrorCode.CHART_TASK_REJECTED.getCode() + ": " + ErrorCode.CHART_TASK_REJECTED.getMessage());
+            throw new BusinessException(ErrorCode.CHART_TASK_REJECTED);
         }
 
         BiResponse biResponse = new BiResponse();
