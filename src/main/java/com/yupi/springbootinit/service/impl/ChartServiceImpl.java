@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * 图表服务实现
@@ -76,14 +78,17 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         return queryWrapper;
     }
 
+    private static final DateTimeFormatter EXEC_MESSAGE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+
     @Override
     public void handleChartUpdateError(long chartId, String execMessage) {
+        String normalizedExecMessage = buildStandardExecMessage(chartId, execMessage);
         Chart updateChart = buildChartStatusUpdate(chartId, ChartStatusEnum.FAILED);
-        updateChart.setExecMessage(execMessage);
+        updateChart.setExecMessage(normalizedExecMessage);
         boolean updated = updateById(updateChart);
         if (!updated) {
             log.error("图表状态更新失败 chartId={}, status={}, execMessage={}",
-                    chartId, ChartStatusEnum.FAILED.getValue(), execMessage);
+                    chartId, ChartStatusEnum.FAILED.getValue(), normalizedExecMessage);
         }
     }
 
@@ -221,6 +226,25 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     public void saveWaitChart(Chart chart) {
         boolean saveResult = save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+    }
+
+    private String buildStandardExecMessage(long chartId, String execMessage) {
+        String timestamp = LocalDateTime.now().format(EXEC_MESSAGE_TIME_FORMATTER);
+        String errorType = extractErrorType(execMessage);
+        String errorMessage = StringUtils.defaultIfBlank(execMessage, ErrorCode.SYSTEM_ERROR.getMessage());
+        return String.format("chartId=%d | errorType=%s | timestamp=%s | message=%s",
+                chartId, errorType, timestamp, errorMessage);
+    }
+
+    private String extractErrorType(String execMessage) {
+        if (StringUtils.isBlank(execMessage)) {
+            return ErrorCode.SYSTEM_ERROR.getCode();
+        }
+        int separatorIndex = execMessage.indexOf(":");
+        if (separatorIndex <= 0) {
+            return ErrorCode.SYSTEM_ERROR.getCode();
+        }
+        return execMessage.substring(0, separatorIndex).trim();
     }
 
     private Chart buildChartStatusUpdate(long chartId, ChartStatusEnum statusEnum) {
