@@ -1,5 +1,6 @@
 package com.yupi.springbootinit.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.yupi.springbootinit.annotation.AuthCheck;
 import com.yupi.springbootinit.common.BaseResponse;
 import com.yupi.springbootinit.common.ErrorCode;
@@ -16,6 +17,7 @@ import com.yupi.springbootinit.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -23,13 +25,17 @@ import org.springframework.test.util.ReflectionTestUtils;
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -170,6 +176,42 @@ class ChartControllerTaskStatusTest {
     }
 
     @Test
+    void getChartTaskStatusBatchShouldAppendUserFilterForNormalUserQuery() {
+        User loginUser = buildUser(700L);
+        ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
+        batchRequest.setChartIds(Arrays.asList(41L, 42L));
+
+        when(userService.getLoginUser(request)).thenReturn(loginUser);
+        when(userService.isAdmin(request)).thenReturn(false);
+        when(chartService.list(any())).thenReturn(Arrays.asList());
+
+        chartController.getChartTaskStatusBatch(batchRequest, request);
+
+        ArgumentCaptor<QueryWrapper> queryWrapperCaptor = ArgumentCaptor.forClass(QueryWrapper.class);
+        verify(chartService).list(queryWrapperCaptor.capture());
+        String sqlSegment = queryWrapperCaptor.getValue().getCustomSqlSegment();
+        assertTrue(sqlSegment.contains("userId"));
+    }
+
+    @Test
+    void getChartTaskStatusBatchShouldNotAppendUserFilterForAdminQuery() {
+        User loginUser = buildUser(800L);
+        ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
+        batchRequest.setChartIds(Arrays.asList(51L, 52L));
+
+        when(userService.getLoginUser(request)).thenReturn(loginUser);
+        when(userService.isAdmin(request)).thenReturn(true);
+        when(chartService.list(any())).thenReturn(Arrays.asList());
+
+        chartController.getChartTaskStatusBatch(batchRequest, request);
+
+        ArgumentCaptor<QueryWrapper> queryWrapperCaptor = ArgumentCaptor.forClass(QueryWrapper.class);
+        verify(chartService).list(queryWrapperCaptor.capture());
+        String sqlSegment = queryWrapperCaptor.getValue().getCustomSqlSegment();
+        assertFalse(sqlSegment.contains("userId ="));
+    }
+
+    @Test
     void getChartTaskStatusBatchShouldRejectNullChartIds() {
         ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
 
@@ -177,6 +219,18 @@ class ChartControllerTaskStatusTest {
                 () -> chartController.getChartTaskStatusBatch(batchRequest, request));
 
         assertEquals(ErrorCode.PARAMS_ERROR.getCode(), exception.getCode());
+    }
+
+    @Test
+    void getChartTaskStatusBatchShouldRejectInvalidChartId() {
+        ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
+        batchRequest.setChartIds(Arrays.asList(41L, 0L, 42L));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> chartController.getChartTaskStatusBatch(batchRequest, request));
+
+        assertEquals(ErrorCode.PARAMS_ERROR.getCode(), exception.getCode());
+        assertEquals("图表 id 非法", exception.getMessage());
     }
 
     @Test
@@ -203,6 +257,18 @@ class ChartControllerTaskStatusTest {
                 6L, 7L, 8L, 9L, 10L,
                 11L, 12L, 13L, 14L, 15L,
                 16L, 17L, 18L, 19L, 20L, 21L));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> chartController.getChartTaskStatusBatch(batchRequest, request));
+
+        assertEquals(ErrorCode.PARAMS_ERROR.getCode(), exception.getCode());
+        assertEquals("单次最多查询 20 个图表", exception.getMessage());
+    }
+
+    @Test
+    void getChartTaskStatusBatchShouldRejectWhenDuplicateRequestExceedsMaxSize() {
+        ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
+        batchRequest.setChartIds(Collections.nCopies(21, 1L));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> chartController.getChartTaskStatusBatch(batchRequest, request));

@@ -208,15 +208,22 @@ public class ChartController {
         List<Long> chartIds = batchRequest.getChartIds();
         ThrowUtils.throwIf(chartIds == null || chartIds.isEmpty(), ErrorCode.PARAMS_ERROR,
                 "图表 id 列表不能为空");
-        Set<Long> chartIdSet = new LinkedHashSet<>(chartIds);
-        ThrowUtils.throwIf(chartIdSet.size() > MAX_BATCH_TASK_STATUS_SIZE, ErrorCode.PARAMS_ERROR,
+        ThrowUtils.throwIf(chartIds.size() > MAX_BATCH_TASK_STATUS_SIZE, ErrorCode.PARAMS_ERROR,
                 "单次最多查询 20 个图表");
+        for (Long chartId : chartIds) {
+            ThrowUtils.throwIf(chartId == null || chartId <= 0, ErrorCode.PARAMS_ERROR,
+                    "图表 id 非法");
+        }
+        Set<Long> chartIdSet = new LinkedHashSet<>(chartIds);
 
         User loginUser = userService.getLoginUser(request);
         boolean isAdmin = userService.isAdmin(request);
 
         QueryWrapper<Chart> queryWrapper = buildTaskStatusQueryWrapper();
         queryWrapper.in("id", chartIdSet);
+        if (!isAdmin) {
+            queryWrapper.eq("userId", loginUser.getId());
+        }
         List<Chart> charts = chartService.list(queryWrapper);
         if (charts == null || charts.isEmpty()) {
             return ResultUtils.success(new ArrayList<>());
