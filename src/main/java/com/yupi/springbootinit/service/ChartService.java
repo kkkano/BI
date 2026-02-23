@@ -6,6 +6,7 @@ import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.dto.chart.GenChartRequest;
+import com.yupi.springbootinit.model.enums.ChartStatusEnum;
 
 /**
  * 图表服务接口
@@ -139,4 +140,35 @@ public interface ChartService extends IService<Chart> {
      * @param chart 图表实体
      */
     void saveWaitChart(Chart chart);
+
+    /**
+     * 构造待入库的图表实体（指定状态）
+     *
+     * @param name      图表名称
+     * @param goal      分析目标
+     * @param chartType 图表类型
+     * @param csvData   原始数据
+     * @param userId    用户 ID
+     * @param status    图表状态
+     * @return 待保存图表
+     */
+    Chart buildChart(String name, String goal, String chartType, String csvData, Long userId, ChartStatusEnum status);
+
+    /**
+     * 保存图表并更新用户积分（同步：运行中）
+     *
+     * @param req       生成请求参数
+     * @param loginUser 当前登录用户
+     * @return 已落库图表
+     */
+    Chart createChartWithRunningStatus(GenChartRequest req, User loginUser);
+
+    /**
+     * 保存图表并更新用户积分（异步：排队中）
+     *
+     * @param req       生成请求参数
+     * @param loginUser 当前登录用户
+     * @return 已落库图表
+     */
+    Chart createChartWithWaitStatus(GenChartRequest req, User loginUser);
 }

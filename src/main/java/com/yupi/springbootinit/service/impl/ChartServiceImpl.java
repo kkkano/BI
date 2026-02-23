@@ -128,17 +128,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public Chart createRunningChart(GenChartRequest req, User loginUser) {
-        Chart chart = new Chart();
-        chart.setStatus(ChartStatusEnum.RUNNING.getValue());
-        chart.setName(req.getName());
-        chart.setGoal(req.getGoal());
-        chart.setChartData(req.getCsvData());
-        chart.setChartType(req.getChartType());
-        chart.setUserId(loginUser.getId());
-        saveChartAndDeductPoint(chart, loginUser);
-        return chart;
+        return createChartWithRunningStatus(req, loginUser);
     }
 
     @Override
@@ -156,8 +147,36 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public Chart createWaitChart(GenChartRequest req, User loginUser) {
-        Chart chart = buildWaitChart(req.getName(), req.getGoal(), req.getChartType(), req.getCsvData(), loginUser.getId());
-        saveWaitChart(chart);
+        return createChartWithWaitStatus(req, loginUser);
+    }
+
+    @Override
+    public Chart buildChart(String name, String goal, String chartType, String csvData, Long userId, ChartStatusEnum status) {
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setStatus(status.getValue());
+        chart.setUserId(userId);
+        return chart;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Chart createChartWithRunningStatus(GenChartRequest req, User loginUser) {
+        Chart chart = buildChart(req.getName(), req.getGoal(), req.getChartType(), req.getCsvData(),
+                loginUser.getId(), ChartStatusEnum.RUNNING);
+        saveChartAndDeductPoint(chart, loginUser);
+        return chart;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Chart createChartWithWaitStatus(GenChartRequest req, User loginUser) {
+        Chart chart = buildChart(req.getName(), req.getGoal(), req.getChartType(), req.getCsvData(),
+                loginUser.getId(), ChartStatusEnum.WAIT);
+        saveChartAndDeductPoint(chart, loginUser);
         return chart;
     }
 
@@ -180,14 +199,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public Chart buildWaitChart(String name, String goal, String chartType, String csvData, Long userId) {
-        Chart chart = new Chart();
-        chart.setName(name);
-        chart.setGoal(goal);
-        chart.setChartData(csvData);
-        chart.setChartType(chartType);
-        chart.setStatus(ChartStatusEnum.WAIT.getValue());
-        chart.setUserId(userId);
-        return chart;
+        return buildChart(name, goal, chartType, csvData, userId, ChartStatusEnum.WAIT);
     }
 
     @Override

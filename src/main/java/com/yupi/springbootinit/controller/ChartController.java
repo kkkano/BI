@@ -268,7 +268,7 @@ public class ChartController {
         genChartRequest.setChartType(chartType);
         genChartRequest.setCsvData(csvData);
 
-        Chart chart = chartService.createRunningChart(genChartRequest, loginUser);
+        Chart chart = chartService.createChartWithRunningStatus(genChartRequest, loginUser);
         String userInput = chartService.buildUserInput(goal, chartType, csvData);
         String[] parsedResult = chartService.generateAndPersistResult(chart.getId(), userInput);
         if (parsedResult == null) {
@@ -301,9 +301,13 @@ public class ChartController {
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         String userInput = chartService.buildUserInput(goal, chartType, csvData);
 
-        // 先入库，状态设为等待
-        Chart chart = chartService.buildWaitChart(name, goal, chartType, csvData, loginUser.getId());
-        chartService.saveWaitChart(chart);
+        GenChartRequest genChartRequest = new GenChartRequest();
+        genChartRequest.setName(name);
+        genChartRequest.setGoal(goal);
+        genChartRequest.setChartType(chartType);
+        genChartRequest.setCsvData(csvData);
+
+        Chart chart = chartService.createChartWithWaitStatus(genChartRequest, loginUser);
 
         // 异步执行 AI 分析
         // 当线程池满时，降级把任务状态置为失败，避免任务长期停留在 wait
@@ -346,9 +350,13 @@ public class ChartController {
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         String userInput = chartService.buildUserInput(goal, chartType, csvData);
 
-        // 先入库，状态设为等待
-        Chart chart = chartService.buildWaitChart(name, goal, chartType, csvData, loginUser.getId());
-        chartService.saveWaitChart(chart);
+        GenChartRequest genChartRequest = new GenChartRequest();
+        genChartRequest.setName(name);
+        genChartRequest.setGoal(goal);
+        genChartRequest.setChartType(chartType);
+        genChartRequest.setCsvData(csvData);
+
+        Chart chart = chartService.createChartWithWaitStatus(genChartRequest, loginUser);
 
         // 发送消息到 MQ，由消费者异步处理
         long newChartId = chart.getId();
