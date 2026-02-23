@@ -276,9 +276,14 @@ public class ChartController {
         // 图表保存与积分扣减同事务执行，保证一致性
         chartService.saveChartAndDeductPoint(chart, loginUser);
 
-        String[] parsedResult = chartService.generateChartAndPersistResult(chart.getId(), userInput);
+        String[] parsedResult = chartService.generateAndParseChartResult(userInput);
         if (parsedResult == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成错误");
+        }
+
+        boolean updated = chartService.updateChartResultToSucceed(chart.getId(), parsedResult[0], parsedResult[1]);
+        if (!updated) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新图表成功状态失败");
         }
 
         BiResponse biResponse = new BiResponse();
