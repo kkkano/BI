@@ -29,11 +29,12 @@ public class QueueController {
     @GetMapping("/add")
     public void add(String name) {
         CompletableFuture.runAsync(() -> {
-            log.info("任务执行中：" + name + "，执行人：" + Thread.currentThread().getName());
+            log.info("任务执行中：{}，执行人：{}", name, Thread.currentThread().getName());
             try {
                 Thread.sleep(600000);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("队列测试任务被中断", e);
             }
         }, threadPoolExecutor);
     }
