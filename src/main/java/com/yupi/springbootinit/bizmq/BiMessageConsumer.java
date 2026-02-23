@@ -2,9 +2,7 @@ package com.yupi.springbootinit.bizmq;
 
 import com.rabbitmq.client.Channel;
 import com.yupi.springbootinit.common.ErrorCode;
-import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.exception.BusinessException;
-import com.yupi.springbootinit.manager.AiManager;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.service.ChartService;
 import lombok.SneakyThrows;
@@ -28,9 +26,6 @@ public class BiMessageConsumer {
     @Resource
     private ChartService chartService;
 
-    @Resource
-    private AiManager aiManager;
-
     // 指定程序监听的消息队列和确认机制
     @SneakyThrows
     @RabbitListener(queues = {BiMqConstant.BI_QUEUE_NAME}, ackMode = "MANUAL")
@@ -47,30 +42,14 @@ public class BiMessageConsumer {
             channel.basicNack(deliveryTag, false, false);
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图表为空");
         }
-        // 先修改图表任务状态为 "执行中"
-        boolean runningUpdated = chartService.updateChartStatusToRunning(chart.getId());
-        if (!runningUpdated) {
+
+        String userInput = chartService.buildUserInput(chart.getGoal(), chart.getChartType(), chart.getChartData());
+        boolean executeSuccess = chartService.executeChartGeneration(chartId, userInput);
+        if (!executeSuccess) {
             channel.basicNack(deliveryTag, false, false);
-            chartService.handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
             return;
         }
-        // 调用 AI
-        String result = aiManager.doChat(CommonConstant.BI_MODEL_ID,
-                chartService.buildUserInput(chart.getGoal(), chart.getChartType(), chart.getChartData()));
-        String[] parsedResult = chartService.parseAiResult(result);
-        if (parsedResult == null) {
-            channel.basicNack(deliveryTag, false, false);
-            chartService.handleChartUpdateError(chart.getId(), "AI 生成错误");
-            return;
-        }
-        String genChart = parsedResult[0];
-        String genResult = parsedResult[1];
-        boolean succeedUpdated = chartService.updateChartResultToSucceed(chart.getId(), genChart, genResult);
-        if (!succeedUpdated) {
-            channel.basicNack(deliveryTag, false, false);
-            chartService.handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
-            return;
-        }
+
         // 消息确认
         channel.basicAck(deliveryTag, false);
     }

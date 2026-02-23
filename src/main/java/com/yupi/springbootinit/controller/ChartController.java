@@ -302,24 +302,7 @@ public class ChartController {
         try {
             CompletableFuture.runAsync(() -> {
                 try {
-                    boolean runningUpdated = chartService.updateChartStatusToRunning(chart.getId());
-                    if (!runningUpdated) {
-                        chartService.handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
-                        return;
-                    }
-                    // 调用 AI
-                    String aiResult = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
-                    String[] parsedResult = chartService.parseAiResult(aiResult);
-                    if (parsedResult == null) {
-                        chartService.handleChartUpdateError(chart.getId(), "AI 生成错误");
-                        return;
-                    }
-                    String genChart = parsedResult[0];
-                    String genResult = parsedResult[1];
-                    boolean succeedUpdated = chartService.updateChartResultToSucceed(chart.getId(), genChart, genResult);
-                    if (!succeedUpdated) {
-                        chartService.handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
-                    }
+                    chartService.executeChartGeneration(chart.getId(), userInput);
                 } catch (Exception e) {
                     log.error("异步生成图表异常，chartId={}", chart.getId(), e);
                     chartService.handleChartUpdateError(chart.getId(), "图表生成异常：" + e.getMessage());

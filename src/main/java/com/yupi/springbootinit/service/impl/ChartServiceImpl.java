@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.exception.ThrowUtils;
+import com.yupi.springbootinit.manager.AiManager;
 import com.yupi.springbootinit.mapper.ChartMapper;
 import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
 import com.yupi.springbootinit.model.entity.Chart;
@@ -31,6 +32,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private AiManager aiManager;
 
     @Override
     public String buildUserInput(String goal, String chartType, String csvData) {
@@ -73,9 +77,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public void handleChartUpdateError(long chartId, String execMessage) {
-        Chart updateChart = new Chart();
-        updateChart.setId(chartId);
-        updateChart.setStatus(ChartStatusEnum.FAILED.getValue());
+        Chart updateChart = buildChartStatusUpdate(chartId, ChartStatusEnum.FAILED);
         updateChart.setExecMessage(execMessage);
         boolean updated = updateById(updateChart);
         if (!updated) {
@@ -85,20 +87,38 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public boolean updateChartStatusToRunning(long chartId) {
-        Chart updateChart = new Chart();
-        updateChart.setId(chartId);
-        updateChart.setStatus(ChartStatusEnum.RUNNING.getValue());
-        return updateById(updateChart);
+        return updateById(buildChartStatusUpdate(chartId, ChartStatusEnum.RUNNING));
     }
 
     @Override
     public boolean updateChartResultToSucceed(long chartId, String genChart, String genResult) {
-        Chart updateChartResult = new Chart();
-        updateChartResult.setId(chartId);
+        Chart updateChartResult = buildChartStatusUpdate(chartId, ChartStatusEnum.SUCCEED);
         updateChartResult.setGenChart(genChart);
         updateChartResult.setGenResult(genResult);
-        updateChartResult.setStatus(ChartStatusEnum.SUCCEED.getValue());
         return updateById(updateChartResult);
+    }
+
+    @Override
+    public boolean executeChartGeneration(long chartId, String userInput) {
+        boolean runningUpdated = updateChartStatusToRunning(chartId);
+        if (!runningUpdated) {
+            handleChartUpdateError(chartId, "更新图表执行中状态失败");
+            return false;
+        }
+
+        String aiResult = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
+        String[] parsedResult = parseAiResult(aiResult);
+        if (parsedResult == null) {
+            handleChartUpdateError(chartId, "AI 生成错误");
+            return false;
+        }
+
+        boolean succeedUpdated = updateChartResultToSucceed(chartId, parsedResult[0], parsedResult[1]);
+        if (!succeedUpdated) {
+            handleChartUpdateError(chartId, "更新图表成功状态失败");
+            return false;
+        }
+        return true;
     }
 
     @Override
@@ -134,5 +154,12 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     public void saveWaitChart(Chart chart) {
         boolean saveResult = save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+    }
+
+    private Chart buildChartStatusUpdate(long chartId, ChartStatusEnum statusEnum) {
+        Chart updateChart = new Chart();
+        updateChart.setId(chartId);
+        updateChart.setStatus(statusEnum.getValue());
+        return updateChart;
     }
 }

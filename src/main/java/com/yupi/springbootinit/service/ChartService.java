@@ -61,6 +61,15 @@ public interface ChartService extends IService<Chart> {
     boolean updateChartResultToSucceed(long chartId, String genChart, String genResult);
 
     /**
+     * 执行图表 AI 生成任务：更新为运行中 -> 调用 AI -> 解析并落库结果（失败时自动回写失败状态）
+     *
+     * @param chartId   图表 ID
+     * @param userInput AI 输入内容
+     * @return 是否执行成功
+     */
+    boolean executeChartGeneration(long chartId, String userInput);
+
+    /**
      * 解析 AI 返回文本，提取图表配置和分析结论
      *
      * @param aiResult AI 原始返回结果
