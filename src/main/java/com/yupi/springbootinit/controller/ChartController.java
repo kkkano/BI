@@ -512,7 +512,14 @@ public class ChartController {
      * 将上传文件转换为 csv，并在解析失败时给出明确提示
      */
     private String parseUploadFileToCsv(MultipartFile multipartFile) {
-        String csvData = ExcelUtils.fileToCsv(multipartFile);
+        String csvData;
+        try {
+            csvData = ExcelUtils.fileToCsv(multipartFile);
+        } catch (Exception e) {
+            log.warn("上传文件解析失败，filename={}", multipartFile.getOriginalFilename(), e);
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,
+                    "文件解析失败，请确认文件格式为 xlsx / xls / csv 且内容有效");
+        }
         ThrowUtils.throwIf(StringUtils.isBlank(csvData), ErrorCode.PARAMS_ERROR,
                 "文件内容为空或解析失败，请检查文件内容与格式");
         return csvData;

@@ -10,7 +10,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -44,14 +43,14 @@ public class ExcelUtils {
         }
         String suffix = StringUtils.lowerCase(FileUtil.getSuffix(originalFilename));
         if ("csv".equals(suffix)) {
-            return csvToCsv(multipartFile);
+            return csvToCsv(multipartFile, originalFilename);
         }
         ExcelTypeEnum excelTypeEnum = getExcelTypeEnum(suffix);
         if (excelTypeEnum == null) {
             log.warn("不支持的文件后缀，无法转换为 csv: {}", suffix);
             return "";
         }
-        return excelToCsv(multipartFile, excelTypeEnum);
+        return excelToCsv(multipartFile, excelTypeEnum, originalFilename);
     }
 
     private static ExcelTypeEnum getExcelTypeEnum(String suffix) {
@@ -64,7 +63,7 @@ public class ExcelUtils {
         return null;
     }
 
-    private static String csvToCsv(MultipartFile multipartFile) {
+    private static String csvToCsv(MultipartFile multipartFile, String filename) {
         try (BufferedReader bufferedReader = new BufferedReader(
                 new InputStreamReader(multipartFile.getInputStream(), StandardCharsets.UTF_8))) {
             List<String> lines = bufferedReader.lines()
@@ -75,8 +74,8 @@ public class ExcelUtils {
                 return "";
             }
             return StringUtils.join(lines, "\n") + "\n";
-        } catch (IOException e) {
-            log.error("CSV 处理错误", e);
+        } catch (Exception e) {
+            log.error("CSV 处理错误 filename={}", filename, e);
             return "";
         }
     }
@@ -88,7 +87,7 @@ public class ExcelUtils {
         return StringUtils.removeStart(line, "\uFEFF");
     }
 
-    private static String excelToCsv(MultipartFile multipartFile, ExcelTypeEnum excelTypeEnum) {
+    private static String excelToCsv(MultipartFile multipartFile, ExcelTypeEnum excelTypeEnum, String filename) {
         List<Map<Integer, String>> list;
         try {
             list = EasyExcel.read(multipartFile.getInputStream())
@@ -96,8 +95,8 @@ public class ExcelUtils {
                     .sheet()
                     .headRowNumber(0)
                     .doReadSync();
-        } catch (IOException e) {
-            log.error("表格处理错误", e);
+        } catch (Exception e) {
+            log.error("表格处理错误 filename={}, type={}", filename, excelTypeEnum, e);
             return "";
         }
         if (CollUtil.isEmpty(list)) {
