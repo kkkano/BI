@@ -1,8 +1,6 @@
 package com.yupi.springbootinit.bizmq;
 
 import com.rabbitmq.client.Channel;
-import com.yupi.springbootinit.common.ErrorCode;
-import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.service.ChartService;
 import lombok.SneakyThrows;
@@ -32,25 +30,53 @@ public class BiMessageConsumer {
     public void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         log.info("receiveMessage message = {}", message);
         if (StringUtils.isBlank(message)) {
-            // 如果失败，消息拒绝
-            channel.basicNack(deliveryTag, false, false);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "消息为空");
+            rejectMessage(channel, deliveryTag, "empty_message", message);
+            return;
         }
-        long chartId = Long.parseLong(message);
+
+        Long chartId = parseChartId(message);
+        if (chartId == null) {
+            rejectMessage(channel, deliveryTag, "invalid_chart_id", message);
+            return;
+        }
+
         Chart chart = chartService.getById(chartId);
         if (chart == null) {
-            channel.basicNack(deliveryTag, false, false);
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图表为空");
+            rejectMessage(channel, deliveryTag, "chart_not_found", message);
+            return;
         }
 
         String userInput = chartService.buildUserInput(chart.getGoal(), chart.getChartType(), chart.getChartData());
-        boolean executeSuccess = chartService.executeChartGeneration(chartId, userInput);
+
+        boolean executeSuccess;
+        try {
+            executeSuccess = chartService.executeChartGeneration(chartId, userInput);
+        } catch (Exception e) {
+            log.error("BI 图表任务执行异常 chartId={}, message={}", chartId, message, e);
+            rejectMessage(channel, deliveryTag, "execute_exception", message);
+            return;
+        }
+
         if (!executeSuccess) {
-            channel.basicNack(deliveryTag, false, false);
+            rejectMessage(channel, deliveryTag, "execute_failed", message);
             return;
         }
 
         // 消息确认
         channel.basicAck(deliveryTag, false);
+    }
+
+    private Long parseChartId(String message) {
+        try {
+            return Long.parseLong(StringUtils.trim(message));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    @SneakyThrows
+    private void rejectMessage(Channel channel, long deliveryTag, String reason, String message) {
+        log.warn("拒绝 BI 消息 reason={}, deliveryTag={}, message={}", reason, deliveryTag, message);
+        channel.basicNack(deliveryTag, false, false);
     }
 }
