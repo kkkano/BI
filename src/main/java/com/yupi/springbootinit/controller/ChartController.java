@@ -21,6 +21,8 @@ import com.yupi.springbootinit.model.vo.BiResponse;
 import com.yupi.springbootinit.model.vo.ChartTaskStatusVO;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
+import com.yupi.springbootinit.utils.ChartTaskTraceUtils;
+import com.yupi.springbootinit.utils.ChartTaskTraceUtils.TaskFailureInfo;
 import com.yupi.springbootinit.utils.ExcelUtils;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
@@ -484,7 +486,13 @@ public class ChartController {
         vo.setGoal(chart.getGoal());
         vo.setChartType(chart.getChartType());
         vo.setStatus(chart.getStatus());
+        vo.setTaskPhase(ChartTaskTraceUtils.resolveTaskPhase(chart.getStatus()));
+        vo.setTraceId(ChartTaskTraceUtils.buildTraceId(chart.getId()));
         vo.setExecMessage(chart.getExecMessage());
+        TaskFailureInfo failureInfo = ChartTaskTraceUtils.parseFailureInfo(chart.getStatus(), chart.getExecMessage());
+        vo.setFailureCode(failureInfo.getFailureCode());
+        vo.setFailureReason(failureInfo.getFailureMessage());
+        vo.setFailureTime(failureInfo.getFailureTime());
         if (ChartStatusEnum.SUCCEED.getValue().equals(chart.getStatus())) {
             Chart contentSource = succeedContentChart != null ? succeedContentChart : chart;
             vo.setGenChart(contentSource.getGenChart());

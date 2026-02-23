@@ -1,17 +1,20 @@
 package com.yupi.springbootinit.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.manager.AiManager;
 import com.yupi.springbootinit.mapper.ChartMapper;
+import com.yupi.springbootinit.model.dto.chart.ChartAgentExecutionContext;
 import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
 import com.yupi.springbootinit.model.dto.chart.GenChartRequest;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.ChartStatusEnum;
+import com.yupi.springbootinit.model.enums.ChartTaskPhaseEnum;
 import com.yupi.springbootinit.model.vo.BiResponse;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
@@ -25,7 +28,10 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * 图表服务实现
@@ -92,9 +98,11 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     @Override
     public void handleChartUpdateError(long chartId, String execMessage) {
         String normalizedExecMessage = buildStandardExecMessage(chartId, execMessage);
-        Chart updateChart = buildChartStatusUpdate(chartId, ChartStatusEnum.FAILED);
+        Chart updateChart = new Chart();
+        updateChart.setStatus(ChartStatusEnum.FAILED.getValue());
         updateChart.setExecMessage(normalizedExecMessage);
-        boolean updated = updateById(updateChart);
+        boolean updated = updateChartWithStatusGuard(chartId, updateChart,
+                ChartStatusEnum.FAILED, ChartStatusEnum.WAIT, ChartStatusEnum.RUNNING);
         if (!updated) {
             log.error("图表状态更新失败 chartId={}, status={}, execMessage={}",
                     chartId, ChartStatusEnum.FAILED.getValue(), normalizedExecMessage);
@@ -103,7 +111,10 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public boolean updateChartStatusToRunning(long chartId) {
-        boolean updated = updateById(buildChartStatusUpdate(chartId, ChartStatusEnum.RUNNING));
+        Chart updateChart = new Chart();
+        updateChart.setStatus(ChartStatusEnum.RUNNING.getValue());
+        boolean updated = updateChartWithStatusGuard(chartId, updateChart,
+                ChartStatusEnum.RUNNING, ChartStatusEnum.WAIT);
         if (!updated) {
             log.error("图表状态更新失败 chartId={}, status={}", chartId, ChartStatusEnum.RUNNING.getValue());
         }
@@ -112,10 +123,12 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public boolean updateChartResultToSucceed(long chartId, String genChart, String genResult) {
-        Chart updateChartResult = buildChartStatusUpdate(chartId, ChartStatusEnum.SUCCEED);
+        Chart updateChartResult = new Chart();
+        updateChartResult.setStatus(ChartStatusEnum.SUCCEED.getValue());
         updateChartResult.setGenChart(genChart);
         updateChartResult.setGenResult(genResult);
-        boolean updated = updateById(updateChartResult);
+        boolean updated = updateChartWithStatusGuard(chartId, updateChartResult,
+                ChartStatusEnum.SUCCEED, ChartStatusEnum.RUNNING);
         if (!updated) {
             log.error("图表状态更新失败 chartId={}, status={}", chartId, ChartStatusEnum.SUCCEED.getValue());
         }
@@ -124,29 +137,47 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public boolean executeChartGeneration(long chartId, String userInput) {
+        ChartAgentExecutionContext executionContext = ChartAgentExecutionContext.create(chartId);
+
         boolean runningUpdated = updateChartStatusToRunning(chartId);
         if (!runningUpdated) {
+            executionContext.markPhase(ChartTaskPhaseEnum.FAILED, "update_running_failed");
             handleChartUpdateError(chartId,
-                    ErrorCode.CHART_TASK_RUNNING_UPDATE_FAILED.getCode() + ": " +
-                            ErrorCode.CHART_TASK_RUNNING_UPDATE_FAILED.getMessage());
+                    appendAgentContext(
+                            ErrorCode.CHART_TASK_RUNNING_UPDATE_FAILED.getCode() + ": "
+                                    + ErrorCode.CHART_TASK_RUNNING_UPDATE_FAILED.getMessage(),
+                            executionContext));
             return false;
         }
+        executionContext.markPhase(ChartTaskPhaseEnum.STATUS_RUNNING_UPDATED, "update_running_success");
 
+        executionContext.markPhase(ChartTaskPhaseEnum.AI_GENERATING, "start_ai_generation");
         String[] parsedResult = generateAndParseChartResult(userInput);
         if (parsedResult == null) {
+            executionContext.markPhase(ChartTaskPhaseEnum.FAILED, "ai_generate_failed");
             handleChartUpdateError(chartId,
-                    ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getCode() + ": " +
-                            ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getMessage());
+                    appendAgentContext(
+                            ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getCode() + ": "
+                                    + ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getMessage(),
+                            executionContext));
             return false;
         }
+        executionContext.markPhase(ChartTaskPhaseEnum.AI_RESULT_PARSED, "parse_ai_result_success");
 
+        executionContext.markPhase(ChartTaskPhaseEnum.RESULT_PERSISTING, "persist_chart_result");
         boolean succeedUpdated = updateChartResultToSucceed(chartId, parsedResult[0], parsedResult[1]);
         if (!succeedUpdated) {
+            executionContext.markPhase(ChartTaskPhaseEnum.FAILED, "update_succeed_failed");
             handleChartUpdateError(chartId,
-                    ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getCode() + ": " +
-                            ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getMessage());
+                    appendAgentContext(
+                            ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getCode() + ": "
+                                    + ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getMessage(),
+                            executionContext));
             return false;
         }
+        executionContext.markPhase(ChartTaskPhaseEnum.RESULT_SUCCEED_UPDATED, "update_succeed_success");
+        executionContext.markPhase(ChartTaskPhaseEnum.FINISHED, "task_finished");
+        log.info("图表任务执行上下文 chartId={}, {}", chartId, executionContext.buildContextFragment());
         return true;
     }
 
@@ -169,20 +200,35 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public String[] generateAndPersistResult(long chartId, String userInput) {
+        ChartAgentExecutionContext executionContext = ChartAgentExecutionContext.create(chartId);
+        executionContext.markPhase(ChartTaskPhaseEnum.AI_GENERATING, "start_ai_generation");
+
         String[] parsedResult = generateAndParseChartResult(userInput);
         if (parsedResult == null) {
+            executionContext.markPhase(ChartTaskPhaseEnum.FAILED, "ai_generate_failed");
             handleChartUpdateError(chartId,
-                    ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getCode() + ": " +
-                            ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getMessage());
+                    appendAgentContext(
+                            ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getCode() + ": "
+                                    + ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getMessage(),
+                            executionContext));
             return null;
         }
+        executionContext.markPhase(ChartTaskPhaseEnum.AI_RESULT_PARSED, "parse_ai_result_success");
+
+        executionContext.markPhase(ChartTaskPhaseEnum.RESULT_PERSISTING, "persist_chart_result");
         boolean updated = updateChartResultToSucceed(chartId, parsedResult[0], parsedResult[1]);
         if (!updated) {
+            executionContext.markPhase(ChartTaskPhaseEnum.FAILED, "update_succeed_failed");
             handleChartUpdateError(chartId,
-                    ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getCode() + ": " +
-                            ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getMessage());
+                    appendAgentContext(
+                            ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getCode() + ": "
+                                    + ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getMessage(),
+                            executionContext));
             return null;
         }
+        executionContext.markPhase(ChartTaskPhaseEnum.RESULT_SUCCEED_UPDATED, "update_succeed_success");
+        executionContext.markPhase(ChartTaskPhaseEnum.FINISHED, "task_finished");
+        log.info("图表任务执行上下文 chartId={}, {}", chartId, executionContext.buildContextFragment());
         return parsedResult;
     }
 
@@ -314,10 +360,31 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         return execMessage.substring(0, separatorIndex).trim();
     }
 
-    private Chart buildChartStatusUpdate(long chartId, ChartStatusEnum statusEnum) {
-        Chart updateChart = new Chart();
-        updateChart.setId(chartId);
-        updateChart.setStatus(statusEnum.getValue());
-        return updateChart;
+    private String appendAgentContext(String execMessage, ChartAgentExecutionContext executionContext) {
+        if (executionContext == null) {
+            return execMessage;
+        }
+        return execMessage + " | " + executionContext.buildContextFragment();
+    }
+
+    private boolean updateChartWithStatusGuard(long chartId, Chart updateEntity,
+                                               ChartStatusEnum targetStatus,
+                                               ChartStatusEnum... allowedFromStatuses) {
+        List<String> allowedStatusValues = Arrays.stream(allowedFromStatuses)
+                .map(ChartStatusEnum::getValue)
+                .collect(Collectors.toList());
+        LambdaUpdateWrapper<Chart> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(Chart::getId, chartId);
+        updateWrapper.eq(Chart::getIsDelete, 0);
+        if (!allowedStatusValues.isEmpty()) {
+            updateWrapper.in(Chart::getStatus, allowedStatusValues);
+        }
+
+        boolean updated = update(updateEntity, updateWrapper);
+        if (!updated) {
+            log.warn("图表状态流转守卫拦截 chartId={}, targetStatus={}, allowedFromStatuses={}",
+                    chartId, targetStatus.getValue(), allowedStatusValues);
+        }
+        return updated;
     }
 }
