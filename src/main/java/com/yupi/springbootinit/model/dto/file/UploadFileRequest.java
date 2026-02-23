@@ -1,6 +1,7 @@
 package com.yupi.springbootinit.model.dto.file;
 
 import java.io.Serializable;
+import javax.validation.constraints.NotBlank;
 import lombok.Data;
 
 /**
@@ -15,6 +16,7 @@ public class UploadFileRequest implements Serializable {
     /**
      * 业务
      */
+    @NotBlank(message = "业务类型不能为空")
     private String biz;
 
     private static final long serialVersionUID = 1L;
