@@ -21,7 +21,8 @@ public enum ErrorCode {
     CHART_TASK_RUNNING_UPDATE_FAILED(50011, "图表任务状态更新失败（执行中）"),
     CHART_TASK_AI_GENERATE_FAILED(50012, "AI 生成图表结果失败"),
     CHART_TASK_SUCCEED_UPDATE_FAILED(50013, "图表任务状态更新失败（已完成）"),
-    CHART_TASK_EXECUTE_EXCEPTION(50014, "图表任务执行异常");
+    CHART_TASK_EXECUTE_EXCEPTION(50014, "图表任务执行异常"),
+    CHART_TASK_MESSAGE_SEND_FAILED(50015, "图表任务投递失败，请稍后重试");
 
     /**
      * 状态码

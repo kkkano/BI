@@ -436,7 +436,16 @@ public class ChartController {
                 chartId, loginUser.getId(), ChartStatusEnum.WAIT.getValue());
 
         // 发送消息到 MQ，由消费者异步处理
-        biMessageProducer.sendMessage(String.valueOf(chartId));
+        try {
+            biMessageProducer.sendMessage(String.valueOf(chartId));
+        } catch (Exception e) {
+            log.error("MQ异步图表任务投递失败，chartId={}, userId={}, status={}",
+                    chartId, loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
+            chartService.handleChartUpdateError(chartId,
+                    ErrorCode.CHART_TASK_MESSAGE_SEND_FAILED.getCode() + ": "
+                            + ErrorCode.CHART_TASK_MESSAGE_SEND_FAILED.getMessage());
+            throw new BusinessException(ErrorCode.CHART_TASK_MESSAGE_SEND_FAILED);
+        }
         return ResultUtils.success(biResponse);
     }
 
