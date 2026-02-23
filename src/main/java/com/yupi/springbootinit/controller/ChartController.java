@@ -268,17 +268,10 @@ public class ChartController {
         genChartRequest.setChartType(chartType);
         genChartRequest.setCsvData(csvData);
 
-        Chart chart = chartService.createChartWithRunningStatus(genChartRequest, loginUser);
-        String userInput = chartService.buildUserInput(goal, chartType, csvData);
-        String[] parsedResult = chartService.generateAndPersistResult(chart.getId(), userInput);
-        if (parsedResult == null) {
+        BiResponse biResponse = chartService.generateChartSync(genChartRequest, loginUser);
+        if (biResponse == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成或结果更新失败");
         }
-
-        BiResponse biResponse = new BiResponse();
-        biResponse.setGenChart(parsedResult[0]);
-        biResponse.setGenResult(parsedResult[1]);
-        biResponse.setChartId(chart.getId());
         return ResultUtils.success(biResponse);
     }
 
@@ -307,9 +300,10 @@ public class ChartController {
         genChartRequest.setChartType(chartType);
         genChartRequest.setCsvData(csvData);
 
-        Chart chart = chartService.createChartWithWaitStatus(genChartRequest, loginUser);
+        BiResponse biResponse = chartService.createAsyncThreadTask(genChartRequest, loginUser);
+        long chartId = biResponse.getChartId();
         log.info("异步图表任务已创建 chartId={}, userId={}, status={}",
-                chart.getId(), loginUser.getId(), ChartStatusEnum.WAIT.getValue());
+                chartId, loginUser.getId(), ChartStatusEnum.WAIT.getValue());
 
         // 异步执行 AI 分析
         // 当线程池满时，降级把任务状态置为失败，避免任务长期停留在 wait
@@ -317,26 +311,24 @@ public class ChartController {
             CompletableFuture.runAsync(() -> {
                 try {
                     log.info("异步图表任务开始执行 chartId={}, userId={}, status={}",
-                            chart.getId(), loginUser.getId(), ChartStatusEnum.RUNNING.getValue());
-                    chartService.executeChartGeneration(chart.getId(), userInput);
+                            chartId, loginUser.getId(), ChartStatusEnum.RUNNING.getValue());
+                    chartService.executeChartGeneration(chartId, userInput);
                 } catch (Exception e) {
                     log.error("异步生成图表异常，chartId={}, userId={}, status={}",
-                            chart.getId(), loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
-                    chartService.handleChartUpdateError(chart.getId(),
+                            chartId, loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
+                    chartService.handleChartUpdateError(chartId,
                             ErrorCode.CHART_TASK_EXECUTE_EXCEPTION.getCode() + ": " +
                                     ErrorCode.CHART_TASK_EXECUTE_EXCEPTION.getMessage() + " - " + e.getMessage());
                 }
             }, threadPoolExecutor);
         } catch (RejectedExecutionException e) {
             log.error("线程池繁忙，异步任务提交失败，chartId={}, userId={}, status={}",
-                    chart.getId(), loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
-            chartService.handleChartUpdateError(chart.getId(),
+                    chartId, loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
+            chartService.handleChartUpdateError(chartId,
                     ErrorCode.CHART_TASK_REJECTED.getCode() + ": " + ErrorCode.CHART_TASK_REJECTED.getMessage());
             throw new BusinessException(ErrorCode.CHART_TASK_REJECTED);
         }
 
-        BiResponse biResponse = new BiResponse();
-        biResponse.setChartId(chart.getId());
         return ResultUtils.success(biResponse);
     }
 
@@ -357,7 +349,6 @@ public class ChartController {
         checkPointsAndRateLimit(loginUser);
 
         String csvData = ExcelUtils.excelToCsv(multipartFile);
-        String userInput = chartService.buildUserInput(goal, chartType, csvData);
 
         GenChartRequest genChartRequest = new GenChartRequest();
         genChartRequest.setName(name);
@@ -365,16 +356,13 @@ public class ChartController {
         genChartRequest.setChartType(chartType);
         genChartRequest.setCsvData(csvData);
 
-        Chart chart = chartService.createChartWithWaitStatus(genChartRequest, loginUser);
+        BiResponse biResponse = chartService.createAsyncMqTask(genChartRequest, loginUser);
+        long chartId = biResponse.getChartId();
         log.info("MQ异步图表任务已创建 chartId={}, userId={}, status={}",
-                chart.getId(), loginUser.getId(), ChartStatusEnum.WAIT.getValue());
+                chartId, loginUser.getId(), ChartStatusEnum.WAIT.getValue());
 
         // 发送消息到 MQ，由消费者异步处理
-        long newChartId = chart.getId();
-        biMessageProducer.sendMessage(String.valueOf(newChartId));
-
-        BiResponse biResponse = new BiResponse();
-        biResponse.setChartId(newChartId);
+        biMessageProducer.sendMessage(String.valueOf(chartId));
         return ResultUtils.success(biResponse);
     }
 

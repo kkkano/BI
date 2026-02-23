@@ -155,20 +155,29 @@ public interface ChartService extends IService<Chart> {
     Chart buildChart(String name, String goal, String chartType, String csvData, Long userId, ChartStatusEnum status);
 
     /**
-     * 保存图表并更新用户积分（同步：运行中）
+     * 执行同步生成主流程：落库运行中图表 -> 调用 AI -> 回填结果
      *
      * @param req       生成请求参数
      * @param loginUser 当前登录用户
-     * @return 已落库图表
+     * @return 生成结果（含 chartId / genChart / genResult）
      */
-    Chart createChartWithRunningStatus(GenChartRequest req, User loginUser);
+    com.yupi.springbootinit.model.vo.BiResponse generateChartSync(GenChartRequest req, User loginUser);
 
     /**
-     * 保存图表并更新用户积分（异步：排队中）
+     * 创建异步任务（线程池）：落库等待中图表并返回任务信息
      *
      * @param req       生成请求参数
      * @param loginUser 当前登录用户
-     * @return 已落库图表
+     * @return 任务信息（仅 chartId）
      */
-    Chart createChartWithWaitStatus(GenChartRequest req, User loginUser);
+    com.yupi.springbootinit.model.vo.BiResponse createAsyncThreadTask(GenChartRequest req, User loginUser);
+
+    /**
+     * 创建异步任务（MQ）：落库等待中图表并返回任务信息
+     *
+     * @param req       生成请求参数
+     * @param loginUser 当前登录用户
+     * @return 任务信息（仅 chartId）
+     */
+    com.yupi.springbootinit.model.vo.BiResponse createAsyncMqTask(GenChartRequest req, User loginUser);
 }

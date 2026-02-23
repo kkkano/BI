@@ -12,6 +12,7 @@ import com.yupi.springbootinit.model.dto.chart.GenChartRequest;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.ChartStatusEnum;
+import com.yupi.springbootinit.model.vo.BiResponse;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.SqlUtils;
@@ -198,6 +199,37 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
                 loginUser.getId(), ChartStatusEnum.WAIT);
         saveChartAndDeductPoint(chart, loginUser);
         return chart;
+    }
+
+    @Override
+    public BiResponse generateChartSync(GenChartRequest req, User loginUser) {
+        Chart chart = createChartWithRunningStatus(req, loginUser);
+        String userInput = buildUserInput(req.getGoal(), req.getChartType(), req.getCsvData());
+        String[] parsedResult = generateAndPersistResult(chart.getId(), userInput);
+        if (parsedResult == null) {
+            return null;
+        }
+        BiResponse biResponse = new BiResponse();
+        biResponse.setChartId(chart.getId());
+        biResponse.setGenChart(parsedResult[0]);
+        biResponse.setGenResult(parsedResult[1]);
+        return biResponse;
+    }
+
+    @Override
+    public BiResponse createAsyncThreadTask(GenChartRequest req, User loginUser) {
+        Chart chart = createChartWithWaitStatus(req, loginUser);
+        BiResponse biResponse = new BiResponse();
+        biResponse.setChartId(chart.getId());
+        return biResponse;
+    }
+
+    @Override
+    public BiResponse createAsyncMqTask(GenChartRequest req, User loginUser) {
+        Chart chart = createChartWithWaitStatus(req, loginUser);
+        BiResponse biResponse = new BiResponse();
+        biResponse.setChartId(chart.getId());
+        return biResponse;
     }
 
     @Override
