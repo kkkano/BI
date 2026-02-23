@@ -84,19 +84,23 @@ class ChartControllerTaskStatusTest {
         long chartId = 2L;
         User loginUser = buildUser(200L);
         Chart chart = buildChart(chartId, loginUser.getId(), ChartStatusEnum.SUCCEED.getValue());
-        chart.setGenChart("{\"series\":[]}");
-        chart.setGenResult("ok");
+        Chart contentChart = new Chart();
+        contentChart.setId(chartId);
+        contentChart.setUserId(loginUser.getId());
+        contentChart.setGenChart("{\"series\":[]}");
+        contentChart.setGenResult("ok");
 
         when(userService.getLoginUser(request)).thenReturn(loginUser);
         when(userService.isAdmin(request)).thenReturn(false);
         when(chartService.getOne(any())).thenReturn(chart);
+        when(chartService.list(any())).thenReturn(Collections.singletonList(contentChart));
 
         BaseResponse<ChartTaskStatusVO> response = chartController.getChartTaskStatus(chartId, request);
 
         assertNotNull(response.getData());
         assertEquals(ChartStatusEnum.SUCCEED.getValue(), response.getData().getStatus());
-        assertEquals(chart.getGenChart(), response.getData().getGenChart());
-        assertEquals(chart.getGenResult(), response.getData().getGenResult());
+        assertEquals(contentChart.getGenChart(), response.getData().getGenChart());
+        assertEquals(contentChart.getGenResult(), response.getData().getGenResult());
     }
 
     @Test
@@ -120,16 +124,15 @@ class ChartControllerTaskStatusTest {
     void getChartTaskStatusBatchShouldReturnOwnedChartsOnlyForNormalUser() {
         User loginUser = buildUser(400L);
         Chart ownedRunningChart = buildChart(11L, loginUser.getId(), ChartStatusEnum.RUNNING.getValue());
-        ownedRunningChart.setGenChart("{\"title\":\"hidden\"}");
-        ownedRunningChart.setGenResult("hidden");
 
         Chart anotherUserChart = buildChart(12L, 888L, ChartStatusEnum.SUCCEED.getValue());
-        anotherUserChart.setGenChart("{\"title\":\"other\"}");
-        anotherUserChart.setGenResult("other");
 
         Chart ownedSucceedChart = buildChart(13L, loginUser.getId(), ChartStatusEnum.SUCCEED.getValue());
-        ownedSucceedChart.setGenChart("{\"title\":\"mine\"}");
-        ownedSucceedChart.setGenResult("mine");
+        Chart ownedSucceedChartContent = new Chart();
+        ownedSucceedChartContent.setId(13L);
+        ownedSucceedChartContent.setUserId(loginUser.getId());
+        ownedSucceedChartContent.setGenChart("{\"title\":\"mine\"}");
+        ownedSucceedChartContent.setGenResult("mine");
 
         ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
         batchRequest.setChartIds(Arrays.asList(12L, 11L, 11L, 13L, 999L));
@@ -137,7 +140,8 @@ class ChartControllerTaskStatusTest {
         when(userService.getLoginUser(request)).thenReturn(loginUser);
         when(userService.isAdmin(request)).thenReturn(false);
         when(chartService.list(any()))
-                .thenReturn(Arrays.asList(ownedRunningChart, anotherUserChart, ownedSucceedChart));
+                .thenReturn(Arrays.asList(ownedRunningChart, anotherUserChart, ownedSucceedChart))
+                .thenReturn(Collections.singletonList(ownedSucceedChartContent));
 
         BaseResponse<List<ChartTaskStatusVO>> response = chartController.getChartTaskStatusBatch(batchRequest, request);
 
@@ -147,8 +151,8 @@ class ChartControllerTaskStatusTest {
         assertNull(response.getData().get(0).getGenChart());
         assertNull(response.getData().get(0).getGenResult());
         assertEquals(13L, response.getData().get(1).getChartId());
-        assertEquals(ownedSucceedChart.getGenChart(), response.getData().get(1).getGenChart());
-        assertEquals(ownedSucceedChart.getGenResult(), response.getData().get(1).getGenResult());
+        assertEquals(ownedSucceedChartContent.getGenChart(), response.getData().get(1).getGenChart());
+        assertEquals(ownedSucceedChartContent.getGenResult(), response.getData().get(1).getGenResult());
     }
 
     @Test
@@ -156,15 +160,20 @@ class ChartControllerTaskStatusTest {
         User loginUser = buildUser(500L);
         Chart chartA = buildChart(21L, 1000L, ChartStatusEnum.RUNNING.getValue());
         Chart chartB = buildChart(22L, 2000L, ChartStatusEnum.SUCCEED.getValue());
-        chartB.setGenChart("{\"title\":\"admin\"}");
-        chartB.setGenResult("admin");
+        Chart chartBContent = new Chart();
+        chartBContent.setId(22L);
+        chartBContent.setUserId(2000L);
+        chartBContent.setGenChart("{\"title\":\"admin\"}");
+        chartBContent.setGenResult("admin");
 
         ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
         batchRequest.setChartIds(Arrays.asList(21L, 22L));
 
         when(userService.getLoginUser(request)).thenReturn(loginUser);
         when(userService.isAdmin(request)).thenReturn(true);
-        when(chartService.list(any())).thenReturn(Arrays.asList(chartA, chartB));
+        when(chartService.list(any()))
+                .thenReturn(Arrays.asList(chartA, chartB))
+                .thenReturn(Collections.singletonList(chartBContent));
 
         BaseResponse<List<ChartTaskStatusVO>> response = chartController.getChartTaskStatusBatch(batchRequest, request);
 
@@ -172,7 +181,7 @@ class ChartControllerTaskStatusTest {
         assertEquals(2, response.getData().size());
         assertEquals(21L, response.getData().get(0).getChartId());
         assertEquals(22L, response.getData().get(1).getChartId());
-        assertEquals(chartB.getGenChart(), response.getData().get(1).getGenChart());
+        assertEquals(chartBContent.getGenChart(), response.getData().get(1).getGenChart());
     }
 
     @Test

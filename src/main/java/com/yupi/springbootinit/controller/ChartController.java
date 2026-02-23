@@ -182,18 +182,24 @@ public class ChartController {
             @ApiImplicitParam(name = "chartId", value = "图表 id", required = true, dataType = "long", paramType = "query")
     })
     public BaseResponse<ChartTaskStatusVO> getChartTaskStatus(@RequestParam("chartId") @Min(value = 1, message = "图表 id 非法") long chartId,
-                                                         HttpServletRequest request) {
+                                                               HttpServletRequest request) {
         ThrowUtils.throwIf(chartId <= 0, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
-        QueryWrapper<Chart> queryWrapper = buildTaskStatusQueryWrapper();
+        boolean isAdmin = userService.isAdmin(request);
+
+        QueryWrapper<Chart> queryWrapper = buildTaskStatusBaseQueryWrapper();
         queryWrapper.eq("id", chartId);
         Chart chart = chartService.getOne(queryWrapper);
         ThrowUtils.throwIf(chart == null, ErrorCode.NOT_FOUND_ERROR);
         // 仅本人或管理员可看任务详情
-        if (!Objects.equals(chart.getUserId(), loginUser.getId()) && !userService.isAdmin(request)) {
+        if (!Objects.equals(chart.getUserId(), loginUser.getId()) && !isAdmin) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
-        return ResultUtils.success(buildTaskStatusVO(chart));
+        Chart succeedContentChart = null;
+        if (ChartStatusEnum.SUCCEED.getValue().equals(chart.getStatus())) {
+            succeedContentChart = querySucceedContentById(chart.getId(), isAdmin, loginUser.getId());
+        }
+        return ResultUtils.success(buildTaskStatusVO(chart, succeedContentChart));
     }
 
     /**
@@ -220,7 +226,7 @@ public class ChartController {
         User loginUser = userService.getLoginUser(request);
         boolean isAdmin = userService.isAdmin(request);
 
-        QueryWrapper<Chart> queryWrapper = buildTaskStatusQueryWrapper();
+        QueryWrapper<Chart> queryWrapper = buildTaskStatusBaseQueryWrapper();
         queryWrapper.in("id", chartIdSet);
         if (!isAdmin) {
             queryWrapper.eq("userId", loginUser.getId());
@@ -230,9 +236,14 @@ public class ChartController {
             return ResultUtils.success(new ArrayList<>());
         }
         Map<Long, Chart> chartMap = new HashMap<>(charts.size());
+        Set<Long> succeedChartIdSet = new LinkedHashSet<>();
         for (Chart chart : charts) {
             chartMap.put(chart.getId(), chart);
+            if (ChartStatusEnum.SUCCEED.getValue().equals(chart.getStatus())) {
+                succeedChartIdSet.add(chart.getId());
+            }
         }
+        Map<Long, Chart> succeedContentMap = querySucceedContentMap(succeedChartIdSet, isAdmin, loginUser.getId());
 
         List<ChartTaskStatusVO> responseList = new ArrayList<>();
         for (Long chartId : chartIdSet) {
@@ -243,7 +254,7 @@ public class ChartController {
             if (!isAdmin && !Objects.equals(chart.getUserId(), loginUser.getId())) {
                 continue;
             }
-            responseList.add(buildTaskStatusVO(chart));
+            responseList.add(buildTaskStatusVO(chart, succeedContentMap.get(chartId)));
         }
         return ResultUtils.success(responseList);
     }
@@ -466,7 +477,7 @@ public class ChartController {
     /**
      * 构建任务状态响应，任务未成功时不返回生成内容
      */
-    private ChartTaskStatusVO buildTaskStatusVO(Chart chart) {
+    private ChartTaskStatusVO buildTaskStatusVO(Chart chart, Chart succeedContentChart) {
         ChartTaskStatusVO vo = new ChartTaskStatusVO();
         vo.setChartId(chart.getId());
         vo.setName(chart.getName());
@@ -475,8 +486,9 @@ public class ChartController {
         vo.setStatus(chart.getStatus());
         vo.setExecMessage(chart.getExecMessage());
         if (ChartStatusEnum.SUCCEED.getValue().equals(chart.getStatus())) {
-            vo.setGenChart(chart.getGenChart());
-            vo.setGenResult(chart.getGenResult());
+            Chart contentSource = succeedContentChart != null ? succeedContentChart : chart;
+            vo.setGenChart(contentSource.getGenChart());
+            vo.setGenResult(contentSource.getGenResult());
         }
         vo.setCreateTime(chart.getCreateTime());
         vo.setUpdateTime(chart.getUpdateTime());
@@ -484,14 +496,49 @@ public class ChartController {
     }
 
     /**
-     * 任务状态查询通用字段（避免读取 chartData 大字段）
+     * 任务状态查询通用字段（避免读取 chartData / genChart / genResult 大字段）
      */
-    private QueryWrapper<Chart> buildTaskStatusQueryWrapper() {
+    private QueryWrapper<Chart> buildTaskStatusBaseQueryWrapper() {
         QueryWrapper<Chart> queryWrapper = new QueryWrapper<>();
         queryWrapper.select("id", "name", "goal", "chartType", "status", "execMessage",
-                "genChart", "genResult", "userId", "createTime", "updateTime");
+                "userId", "createTime", "updateTime");
         queryWrapper.eq("isDelete", false);
         return queryWrapper;
+    }
+
+    /**
+     * 查询已完成任务生成内容（按需加载，避免轮询接口每次都读取大字段）
+     */
+    private Map<Long, Chart> querySucceedContentMap(Set<Long> succeedChartIdSet, boolean isAdmin, Long loginUserId) {
+        Map<Long, Chart> chartMap = new HashMap<>();
+        if (succeedChartIdSet == null || succeedChartIdSet.isEmpty()) {
+            return chartMap;
+        }
+        QueryWrapper<Chart> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "genChart", "genResult", "userId");
+        queryWrapper.eq("isDelete", false);
+        queryWrapper.eq("status", ChartStatusEnum.SUCCEED.getValue());
+        queryWrapper.in("id", succeedChartIdSet);
+        if (!isAdmin) {
+            queryWrapper.eq("userId", loginUserId);
+        }
+        List<Chart> charts = chartService.list(queryWrapper);
+        if (charts == null || charts.isEmpty()) {
+            return chartMap;
+        }
+        for (Chart chart : charts) {
+            chartMap.put(chart.getId(), chart);
+        }
+        return chartMap;
+    }
+
+    /**
+     * 查询单个已完成任务生成内容
+     */
+    private Chart querySucceedContentById(long chartId, boolean isAdmin, Long loginUserId) {
+        Set<Long> chartIdSet = new LinkedHashSet<>();
+        chartIdSet.add(chartId);
+        return querySucceedContentMap(chartIdSet, isAdmin, loginUserId).get(chartId);
     }
 
     /**
