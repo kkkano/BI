@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.regex.Pattern;
 
 /**
  * 图表服务实现
@@ -144,8 +145,14 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public String[] generateAndParseChartResult(String userInput) {
-        String aiResult = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
-        return parseAiResult(aiResult);
+        try {
+            String aiResult = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
+            return parseAiResult(aiResult);
+        } catch (Exception e) {
+            log.error("AI 调用失败 modelId={}, userInputLength={}",
+                    CommonConstant.BI_MODEL_ID, StringUtils.length(userInput), e);
+            return null;
+        }
     }
 
     @Override
@@ -234,8 +241,14 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public String[] parseAiResult(String aiResult) {
-        String[] splits = aiResult.split(AI_RESULT_DELIMITER);
-        if (splits.length < 3) {
+        if (StringUtils.isBlank(aiResult)) {
+            log.warn("AI 返回结果为空，无法解析");
+            return null;
+        }
+        String[] splits = aiResult.split(Pattern.quote(AI_RESULT_DELIMITER), 3);
+        if (splits.length < 3 || StringUtils.isAnyBlank(splits[1], splits[2])) {
+            log.warn("AI 返回结果格式异常 splitCount={}, aiResultLength={}, preview={}",
+                    splits.length, aiResult.length(), StringUtils.abbreviate(aiResult, 200));
             return null;
         }
         return new String[]{splits[1].trim(), splits[2].trim()};
