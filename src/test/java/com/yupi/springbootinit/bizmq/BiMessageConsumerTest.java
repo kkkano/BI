@@ -10,6 +10,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -48,6 +49,16 @@ class BiMessageConsumerTest {
     }
 
     @Test
+    void shouldRejectWhenMessageIsNonPositiveId() {
+        consumer.receiveMessage("0", channel, 21L);
+        consumer.receiveMessage("-8", channel, 22L);
+
+        verify(channel).basicNack(21L, false, false);
+        verify(channel).basicNack(22L, false, false);
+        verifyNoInteractions(chartService);
+    }
+
+    @Test
     void shouldAckWhenChartTaskExecutedSuccessfully() {
         Chart chart = new Chart();
         chart.setGoal("分析销售额");
@@ -80,7 +91,7 @@ class BiMessageConsumerTest {
     }
 
     @Test
-    void shouldRejectWhenChartTaskExecutionThrowsException() {
+    void shouldRejectAndMarkFailedWhenChartTaskExecutionThrowsException() {
         Chart chart = new Chart();
         chart.setGoal("分析销售额");
         chart.setChartType("折线图");
@@ -94,6 +105,7 @@ class BiMessageConsumerTest {
         verify(channel).basicNack(5L, false, false);
         verify(channel, never()).basicAck(anyLong(), anyBoolean());
         verify(chartService).executeChartGeneration(5L, "userInput");
+        verify(chartService).handleChartUpdateError(eq(5L), anyString());
     }
 
     @Test

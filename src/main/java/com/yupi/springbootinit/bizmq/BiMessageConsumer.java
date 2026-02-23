@@ -1,6 +1,7 @@
 package com.yupi.springbootinit.bizmq;
 
 import com.rabbitmq.client.Channel;
+import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.service.ChartService;
 import lombok.SneakyThrows;
@@ -28,21 +29,24 @@ public class BiMessageConsumer {
     @SneakyThrows
     @RabbitListener(queues = {BiMqConstant.BI_QUEUE_NAME}, ackMode = "MANUAL")
     public void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
-        log.info("receiveMessage message = {}", message);
-        if (StringUtils.isBlank(message)) {
-            rejectMessage(channel, deliveryTag, "empty_message", message);
+        long startTime = System.currentTimeMillis();
+        String normalizedMessage = StringUtils.trimToEmpty(message);
+        log.info("收到 BI 消息 deliveryTag={}, message={}", deliveryTag, StringUtils.abbreviate(normalizedMessage, 200));
+
+        if (StringUtils.isBlank(normalizedMessage)) {
+            rejectMessage(channel, deliveryTag, "empty_message", normalizedMessage);
             return;
         }
 
-        Long chartId = parseChartId(message);
+        Long chartId = parseChartId(normalizedMessage);
         if (chartId == null) {
-            rejectMessage(channel, deliveryTag, "invalid_chart_id", message);
+            rejectMessage(channel, deliveryTag, "invalid_chart_id", normalizedMessage);
             return;
         }
 
         Chart chart = chartService.getById(chartId);
         if (chart == null) {
-            rejectMessage(channel, deliveryTag, "chart_not_found", message);
+            rejectMessage(channel, deliveryTag, "chart_not_found", normalizedMessage);
             return;
         }
 
@@ -52,23 +56,28 @@ public class BiMessageConsumer {
         try {
             executeSuccess = chartService.executeChartGeneration(chartId, userInput);
         } catch (Exception e) {
-            log.error("BI 图表任务执行异常 chartId={}, message={}", chartId, message, e);
-            rejectMessage(channel, deliveryTag, "execute_exception", message);
+            log.error("BI 图表任务执行异常 chartId={}, deliveryTag={}", chartId, deliveryTag, e);
+            chartService.handleChartUpdateError(chartId,
+                    ErrorCode.CHART_TASK_EXECUTE_EXCEPTION.getCode() + ": " +
+                            ErrorCode.CHART_TASK_EXECUTE_EXCEPTION.getMessage() + " - " + e.getMessage());
+            rejectMessage(channel, deliveryTag, "execute_exception", normalizedMessage);
             return;
         }
 
         if (!executeSuccess) {
-            rejectMessage(channel, deliveryTag, "execute_failed", message);
+            rejectMessage(channel, deliveryTag, "execute_failed", normalizedMessage);
             return;
         }
 
-        // 消息确认
         channel.basicAck(deliveryTag, false);
+        log.info("BI 图表任务执行成功 chartId={}, deliveryTag={}, costMs={}",
+                chartId, deliveryTag, System.currentTimeMillis() - startTime);
     }
 
     private Long parseChartId(String message) {
         try {
-            return Long.parseLong(StringUtils.trim(message));
+            long chartId = Long.parseLong(StringUtils.trim(message));
+            return chartId > 0 ? chartId : null;
         } catch (NumberFormatException e) {
             return null;
         }
@@ -76,7 +85,8 @@ public class BiMessageConsumer {
 
     @SneakyThrows
     private void rejectMessage(Channel channel, long deliveryTag, String reason, String message) {
-        log.warn("拒绝 BI 消息 reason={}, deliveryTag={}, message={}", reason, deliveryTag, message);
+        log.warn("拒绝 BI 消息 reason={}, deliveryTag={}, message={}",
+                reason, deliveryTag, StringUtils.abbreviate(StringUtils.defaultString(message), 200));
         channel.basicNack(deliveryTag, false, false);
     }
 }
