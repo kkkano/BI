@@ -377,7 +377,7 @@ public class ChartController {
         genChartRequest.setCsvData(csvData);
 
         BiResponse biResponse = chartService.createAsyncThreadTask(genChartRequest, loginUser);
-        long chartId = biResponse.getChartId();
+        long chartId = extractChartId(biResponse);
         log.info("异步图表任务已创建 chartId={}, userId={}, status={}",
                 chartId, loginUser.getId(), ChartStatusEnum.WAIT.getValue());
 
@@ -434,7 +434,7 @@ public class ChartController {
         genChartRequest.setCsvData(csvData);
 
         BiResponse biResponse = chartService.createAsyncMqTask(genChartRequest, loginUser);
-        long chartId = biResponse.getChartId();
+        long chartId = extractChartId(biResponse);
         log.info("MQ异步图表任务已创建 chartId={}, userId={}, status={}",
                 chartId, loginUser.getId(), ChartStatusEnum.WAIT.getValue());
 
@@ -453,6 +453,15 @@ public class ChartController {
     }
 
     // region 私有工具方法
+
+    /**
+     * 提取异步任务 chartId，避免任务创建异常时出现空指针
+     */
+    private long extractChartId(BiResponse biResponse) {
+        ThrowUtils.throwIf(biResponse == null || biResponse.getChartId() == null || biResponse.getChartId() <= 0,
+                ErrorCode.SYSTEM_ERROR, "图表任务创建失败");
+        return biResponse.getChartId();
+    }
 
     /**
      * 构建任务状态响应，任务未成功时不返回生成内容

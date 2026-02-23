@@ -112,6 +112,20 @@ class ChartControllerAsyncSubmissionTest {
         assertTrue(messageCaptor.getValue().contains(String.valueOf(ErrorCode.CHART_TASK_REJECTED.getCode())));
     }
 
+    @Test
+    void genChartByAiAsyncShouldRejectWhenCreateTaskReturnsNull() {
+        User loginUser = buildUser(303L, 4);
+        when(userService.getLoginUser(request)).thenReturn(loginUser);
+        when(chartService.buildUserInput(anyString(), anyString(), anyString())).thenReturn("user-input");
+        when(chartService.createAsyncThreadTask(any(), eq(loginUser))).thenReturn(null);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> chartController.genChartByAiAsync(buildCsvFile(), buildRequest(), request));
+
+        assertEquals(ErrorCode.SYSTEM_ERROR.getCode(), exception.getCode());
+        verify(chartService, never()).handleChartUpdateError(any(), any());
+    }
+
     private User buildUser(long userId, int points) {
         User user = new User();
         user.setId(userId);

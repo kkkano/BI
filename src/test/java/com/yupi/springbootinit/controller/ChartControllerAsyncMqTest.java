@@ -99,6 +99,22 @@ class ChartControllerAsyncMqTest {
                 String.valueOf(ErrorCode.CHART_TASK_MESSAGE_SEND_FAILED.getCode())));
     }
 
+    @Test
+    void genChartByAiAsyncMqShouldRejectWhenCreateTaskResponseLacksChartId() {
+        User loginUser = buildUser(1003L, 2);
+        when(userService.getLoginUser(request)).thenReturn(loginUser);
+
+        BiResponse biResponse = new BiResponse();
+        when(chartService.createAsyncMqTask(any(), eq(loginUser))).thenReturn(biResponse);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> chartController.genChartByAiAsyncMq(buildCsvFile(), buildRequest(), request));
+
+        assertEquals(ErrorCode.SYSTEM_ERROR.getCode(), exception.getCode());
+        verify(biMessageProducer, never()).sendMessage(any());
+        verify(chartService, never()).handleChartUpdateError(any(), any());
+    }
+
     private User buildUser(long userId, int points) {
         User user = new User();
         user.setId(userId);
