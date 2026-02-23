@@ -6,9 +6,13 @@ import com.yupi.springbootinit.common.ResultUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import javax.validation.ConstraintViolation;
@@ -68,6 +72,43 @@ public class GlobalExceptionHandler {
                 .map(ConstraintViolation::getMessage)
                 .orElse(ErrorCode.PARAMS_ERROR.getMessage());
         return ResultUtils.error(ErrorCode.PARAMS_ERROR.getCode(), message);
+    }
+
+    /**
+     * query/form 缺少必须参数
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public BaseResponse<?> missingServletRequestParameterExceptionHandler(MissingServletRequestParameterException e) {
+        log.warn("MissingServletRequestParameterException", e);
+        return ResultUtils.error(ErrorCode.PARAMS_ERROR, "缺少必要参数：" + e.getParameterName());
+    }
+
+    /**
+     * 路径参数 / 查询参数类型不匹配
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public BaseResponse<?> methodArgumentTypeMismatchExceptionHandler(MethodArgumentTypeMismatchException e) {
+        log.warn("MethodArgumentTypeMismatchException", e);
+        String name = e.getName() == null ? "参数" : e.getName();
+        return ResultUtils.error(ErrorCode.PARAMS_ERROR, name + " 参数类型错误");
+    }
+
+    /**
+     * 请求方法不支持
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public BaseResponse<?> httpRequestMethodNotSupportedExceptionHandler(HttpRequestMethodNotSupportedException e) {
+        log.warn("HttpRequestMethodNotSupportedException", e);
+        return ResultUtils.error(ErrorCode.PARAMS_ERROR, "请求方法不支持");
+    }
+
+    /**
+     * 请求 Content-Type 不支持
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public BaseResponse<?> httpMediaTypeNotSupportedExceptionHandler(HttpMediaTypeNotSupportedException e) {
+        log.warn("HttpMediaTypeNotSupportedException", e);
+        return ResultUtils.error(ErrorCode.PARAMS_ERROR, "请求类型不支持");
     }
 
     /**
