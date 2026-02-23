@@ -17,6 +17,8 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 
 import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
@@ -128,6 +130,22 @@ public class GlobalExceptionHandler {
     public BaseResponse<?> rejectedExecutionExceptionHandler(RejectedExecutionException e) {
         log.error("RejectedExecutionException: 任务队列已满", e);
         return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "当前请求繁忙，请稍后再试");
+    }
+
+    /**
+     * 处理异步链路包装异常（CompletableFuture / Future）
+     * 优先透传 BusinessException，其余按系统错误返回统一 BaseResponse
+     */
+    @ExceptionHandler({CompletionException.class, ExecutionException.class})
+    public BaseResponse<?> asyncWrappedExceptionHandler(Exception e) {
+        Throwable cause = e.getCause();
+        if (cause instanceof BusinessException) {
+            BusinessException businessException = (BusinessException) cause;
+            log.error("Async wrapped BusinessException", e);
+            return ResultUtils.error(businessException.getCode(), businessException.getMessage());
+        }
+        log.error("Async wrapped exception", e);
+        return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "系统错误");
     }
 
     @ExceptionHandler(RuntimeException.class)
