@@ -26,6 +26,7 @@ import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -53,7 +54,7 @@ import java.util.concurrent.RejectedExecutionException;
 public class ChartController {
 
     /** 支持上传的文件后缀白名单（统一维护） */
-    private static final List<String> VALID_FILE_SUFFIXES = Arrays.asList("xlsx", "xls");
+    private static final List<String> VALID_FILE_SUFFIXES = Arrays.asList("xlsx", "xls", "csv");
 
     /** 上传文件大小上限：1 MB */
     private static final long MAX_FILE_SIZE = 1024 * 1024L;
@@ -267,7 +268,7 @@ public class ChartController {
         User loginUser = userService.getLoginUser(request);
         checkPointsAndRateLimit(loginUser);
 
-        String csvData = ExcelUtils.excelToCsv(multipartFile);
+        String csvData = parseUploadFileToCsv(multipartFile);
         GenChartRequest genChartRequest = new GenChartRequest();
         genChartRequest.setName(name);
         genChartRequest.setGoal(goal);
@@ -297,7 +298,7 @@ public class ChartController {
         User loginUser = userService.getLoginUser(request);
         checkPointsAndRateLimit(loginUser);
 
-        String csvData = ExcelUtils.excelToCsv(multipartFile);
+        String csvData = parseUploadFileToCsv(multipartFile);
         String userInput = chartService.buildUserInput(goal, chartType, csvData);
 
         GenChartRequest genChartRequest = new GenChartRequest();
@@ -354,7 +355,7 @@ public class ChartController {
         User loginUser = userService.getLoginUser(request);
         checkPointsAndRateLimit(loginUser);
 
-        String csvData = ExcelUtils.excelToCsv(multipartFile);
+        String csvData = parseUploadFileToCsv(multipartFile);
 
         GenChartRequest genChartRequest = new GenChartRequest();
         genChartRequest.setName(name);
@@ -385,7 +386,17 @@ public class ChartController {
         ThrowUtils.throwIf(originalFilename == null, ErrorCode.PARAMS_ERROR, "文件名非法");
         String suffix = FileUtil.getSuffix(originalFilename);
         ThrowUtils.throwIf(suffix == null || !VALID_FILE_SUFFIXES.contains(suffix.toLowerCase(Locale.ROOT)),
-                ErrorCode.PARAMS_ERROR, "文件后缀非法");
+                ErrorCode.PARAMS_ERROR, "文件后缀非法，仅支持 xlsx / xls / csv");
+    }
+
+    /**
+     * 将上传文件转换为 csv，并在解析失败时给出明确提示
+     */
+    private String parseUploadFileToCsv(MultipartFile multipartFile) {
+        String csvData = ExcelUtils.fileToCsv(multipartFile);
+        ThrowUtils.throwIf(StringUtils.isBlank(csvData), ErrorCode.PARAMS_ERROR,
+                "文件内容为空或解析失败，请检查文件内容与格式");
+        return csvData;
     }
 
     /**
