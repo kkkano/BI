@@ -308,20 +308,26 @@ public class ChartController {
         genChartRequest.setCsvData(csvData);
 
         Chart chart = chartService.createChartWithWaitStatus(genChartRequest, loginUser);
+        log.info("异步图表任务已创建 chartId={}, userId={}, status={}",
+                chart.getId(), loginUser.getId(), ChartStatusEnum.WAIT.getValue());
 
         // 异步执行 AI 分析
         // 当线程池满时，降级把任务状态置为失败，避免任务长期停留在 wait
         try {
             CompletableFuture.runAsync(() -> {
                 try {
+                    log.info("异步图表任务开始执行 chartId={}, userId={}, status={}",
+                            chart.getId(), loginUser.getId(), ChartStatusEnum.RUNNING.getValue());
                     chartService.executeChartGeneration(chart.getId(), userInput);
                 } catch (Exception e) {
-                    log.error("异步生成图表异常，chartId={}", chart.getId(), e);
+                    log.error("异步生成图表异常，chartId={}, userId={}, status={}",
+                            chart.getId(), loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
                     chartService.handleChartUpdateError(chart.getId(), "图表生成异常：" + e.getMessage());
                 }
             }, threadPoolExecutor);
         } catch (RejectedExecutionException e) {
-            log.error("线程池繁忙，异步任务提交失败，chartId={}", chart.getId(), e);
+            log.error("线程池繁忙，异步任务提交失败，chartId={}, userId={}, status={}",
+                    chart.getId(), loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
             chartService.handleChartUpdateError(chart.getId(), "系统繁忙，请稍后重试");
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "当前系统繁忙，请稍后重试");
         }
@@ -357,6 +363,8 @@ public class ChartController {
         genChartRequest.setCsvData(csvData);
 
         Chart chart = chartService.createChartWithWaitStatus(genChartRequest, loginUser);
+        log.info("MQ异步图表任务已创建 chartId={}, userId={}, status={}",
+                chart.getId(), loginUser.getId(), ChartStatusEnum.WAIT.getValue());
 
         // 发送消息到 MQ，由消费者异步处理
         long newChartId = chart.getId();

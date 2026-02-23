@@ -82,13 +82,18 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         updateChart.setExecMessage(execMessage);
         boolean updated = updateById(updateChart);
         if (!updated) {
-            log.error("更新图表失败状态失败 chartId={}, execMessage={}", chartId, execMessage);
+            log.error("图表状态更新失败 chartId={}, status={}, execMessage={}",
+                    chartId, ChartStatusEnum.FAILED.getValue(), execMessage);
         }
     }
 
     @Override
     public boolean updateChartStatusToRunning(long chartId) {
-        return updateById(buildChartStatusUpdate(chartId, ChartStatusEnum.RUNNING));
+        boolean updated = updateById(buildChartStatusUpdate(chartId, ChartStatusEnum.RUNNING));
+        if (!updated) {
+            log.error("图表状态更新失败 chartId={}, status={}", chartId, ChartStatusEnum.RUNNING.getValue());
+        }
+        return updated;
     }
 
     @Override
@@ -96,7 +101,11 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         Chart updateChartResult = buildChartStatusUpdate(chartId, ChartStatusEnum.SUCCEED);
         updateChartResult.setGenChart(genChart);
         updateChartResult.setGenResult(genResult);
-        return updateById(updateChartResult);
+        boolean updated = updateById(updateChartResult);
+        if (!updated) {
+            log.error("图表状态更新失败 chartId={}, status={}", chartId, ChartStatusEnum.SUCCEED.getValue());
+        }
+        return updated;
     }
 
     @Override
