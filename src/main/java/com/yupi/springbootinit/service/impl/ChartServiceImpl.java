@@ -8,6 +8,7 @@ import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.manager.AiManager;
 import com.yupi.springbootinit.mapper.ChartMapper;
 import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
+import com.yupi.springbootinit.model.dto.chart.GenChartRequest;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.ChartStatusEnum;
@@ -124,6 +125,40 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     public String[] generateAndParseChartResult(String userInput) {
         String aiResult = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
         return parseAiResult(aiResult);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Chart createRunningChart(GenChartRequest req, User loginUser) {
+        Chart chart = new Chart();
+        chart.setStatus(ChartStatusEnum.RUNNING.getValue());
+        chart.setName(req.getName());
+        chart.setGoal(req.getGoal());
+        chart.setChartData(req.getCsvData());
+        chart.setChartType(req.getChartType());
+        chart.setUserId(loginUser.getId());
+        saveChartAndDeductPoint(chart, loginUser);
+        return chart;
+    }
+
+    @Override
+    public String[] generateAndPersistResult(long chartId, String userInput) {
+        String[] parsedResult = generateAndParseChartResult(userInput);
+        if (parsedResult == null) {
+            return null;
+        }
+        boolean updated = updateChartResultToSucceed(chartId, parsedResult[0], parsedResult[1]);
+        if (!updated) {
+            return null;
+        }
+        return parsedResult;
+    }
+
+    @Override
+    public Chart createWaitChart(GenChartRequest req, User loginUser) {
+        Chart chart = buildWaitChart(req.getName(), req.getGoal(), req.getChartType(), req.getCsvData(), loginUser.getId());
+        saveWaitChart(chart);
+        return chart;
     }
 
     @Override

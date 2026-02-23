@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
+import com.yupi.springbootinit.model.dto.chart.GenChartRequest;
 
 /**
  * 图表服务接口
@@ -84,6 +85,33 @@ public interface ChartService extends IService<Chart> {
      * @return 长度为 2 的数组：index=0 为 genChart，index=1 为 genResult；失败返回 null
      */
     String[] generateAndParseChartResult(String userInput);
+
+    /**
+     * 解析请求并落库为运行中图表（同步模式）
+     *
+     * @param req       生成请求参数
+     * @param loginUser 当前登录用户
+     * @return 已落库图表
+     */
+    Chart createRunningChart(GenChartRequest req, User loginUser);
+
+    /**
+     * 同步执行 AI 生成并回填图表结果
+     *
+     * @param chartId   图表 ID
+     * @param userInput AI 输入内容
+     * @return 长度为 2 的数组：index=0 为 genChart，index=1 为 genResult；失败返回 null
+     */
+    String[] generateAndPersistResult(long chartId, String userInput);
+
+    /**
+     * 解析请求并落库为等待中图表（异步模式）
+     *
+     * @param req       生成请求参数
+     * @param loginUser 当前登录用户
+     * @return 已落库图表
+     */
+    Chart createWaitChart(GenChartRequest req, User loginUser);
 
     /**
      * 保存图表并扣减一次使用积分（事务保障）

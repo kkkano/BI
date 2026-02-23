@@ -262,28 +262,17 @@ public class ChartController {
         checkPointsAndRateLimit(loginUser);
 
         String csvData = ExcelUtils.excelToCsv(multipartFile);
+        GenChartRequest genChartRequest = new GenChartRequest();
+        genChartRequest.setName(name);
+        genChartRequest.setGoal(goal);
+        genChartRequest.setChartType(chartType);
+        genChartRequest.setCsvData(csvData);
+
+        Chart chart = chartService.createRunningChart(genChartRequest, loginUser);
         String userInput = chartService.buildUserInput(goal, chartType, csvData);
-
-        Chart chart = new Chart();
-        chart.setStatus(ChartStatusEnum.RUNNING.getValue());
-        chart.setName(name);
-        chart.setGoal(goal);
-        chart.setChartData(csvData);
-        chart.setChartType(chartType);
-        chart.setGenChart(genChart);
-        chart.setGenResult(genResult);
-        chart.setUserId(loginUser.getId());
-        // 图表保存与积分扣减同事务执行，保证一致性
-        chartService.saveChartAndDeductPoint(chart, loginUser);
-
-        String[] parsedResult = chartService.generateAndParseChartResult(userInput);
+        String[] parsedResult = chartService.generateAndPersistResult(chart.getId(), userInput);
         if (parsedResult == null) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成错误");
-        }
-
-        boolean updated = chartService.updateChartResultToSucceed(chart.getId(), parsedResult[0], parsedResult[1]);
-        if (!updated) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新图表成功状态失败");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成或结果更新失败");
         }
 
         BiResponse biResponse = new BiResponse();
