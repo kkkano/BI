@@ -15,6 +15,7 @@ import com.yupi.springbootinit.manager.RedisLimiterManager;
 import com.yupi.springbootinit.model.dto.chart.*;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
+import com.yupi.springbootinit.model.enums.ChartStatusEnum;
 import com.yupi.springbootinit.model.vo.BiResponse;
 import com.yupi.springbootinit.model.vo.ChartTaskStatusVO;
 import com.yupi.springbootinit.service.ChartService;
@@ -263,15 +264,8 @@ public class ChartController {
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         String userInput = chartService.buildUserInput(goal, chartType, csvData);
 
-        String[] parsedResult = chartService.generateChartAndResult(userInput);
-        if (parsedResult == null) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成错误");
-        }
-        String genChart = parsedResult[0];
-        String genResult = parsedResult[1];
-
         Chart chart = new Chart();
-        chart.setStatus(ChartStatusEnum.SUCCEED.getValue());
+        chart.setStatus(ChartStatusEnum.RUNNING.getValue());
         chart.setName(name);
         chart.setGoal(goal);
         chart.setChartData(csvData);
@@ -282,9 +276,14 @@ public class ChartController {
         // 图表保存与积分扣减同事务执行，保证一致性
         chartService.saveChartAndDeductPoint(chart, loginUser);
 
+        String[] parsedResult = chartService.generateChartAndPersistResult(chart.getId(), userInput);
+        if (parsedResult == null) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成错误");
+        }
+
         BiResponse biResponse = new BiResponse();
-        biResponse.setGenChart(genChart);
-        biResponse.setGenResult(genResult);
+        biResponse.setGenChart(parsedResult[0]);
+        biResponse.setGenResult(parsedResult[1]);
         biResponse.setChartId(chart.getId());
         return ResultUtils.success(biResponse);
     }

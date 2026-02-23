@@ -106,24 +106,28 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
             return false;
         }
 
-        String[] parsedResult = generateChartAndResult(userInput);
+        String[] parsedResult = generateChartAndPersistResult(chartId, userInput);
         if (parsedResult == null) {
             handleChartUpdateError(chartId, "AI 生成错误");
-            return false;
-        }
-
-        boolean succeedUpdated = updateChartResultToSucceed(chartId, parsedResult[0], parsedResult[1]);
-        if (!succeedUpdated) {
-            handleChartUpdateError(chartId, "更新图表成功状态失败");
             return false;
         }
         return true;
     }
 
     @Override
-    public String[] generateChartAndResult(String userInput) {
+    public String[] generateChartAndPersistResult(long chartId, String userInput) {
         String aiResult = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
-        return parseAiResult(aiResult);
+        String[] parsedResult = parseAiResult(aiResult);
+        if (parsedResult == null) {
+            return null;
+        }
+
+        boolean succeedUpdated = updateChartResultToSucceed(chartId, parsedResult[0], parsedResult[1]);
+        if (!succeedUpdated) {
+            handleChartUpdateError(chartId, "更新图表成功状态失败");
+            return null;
+        }
+        return parsedResult;
     }
 
     @Override
