@@ -17,6 +17,7 @@ import com.yupi.springbootinit.model.dto.chart.*;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.ChartStatusEnum;
+import com.yupi.springbootinit.model.enums.ChartTaskPhaseEnum;
 import com.yupi.springbootinit.model.vo.BiResponse;
 import com.yupi.springbootinit.model.vo.ChartTaskStatusVO;
 import com.yupi.springbootinit.service.ChartService;
@@ -405,16 +406,21 @@ public class ChartController {
                 } catch (Exception e) {
                     log.error("异步生成图表异常，chartId={}, userId={}, status={}",
                             chartId, loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
+                    String execMessage = ErrorCode.CHART_TASK_EXECUTE_EXCEPTION.getCode() + ": "
+                            + ErrorCode.CHART_TASK_EXECUTE_EXCEPTION.getMessage() + " - " + e.getMessage();
                     chartService.handleChartUpdateError(chartId,
-                            ErrorCode.CHART_TASK_EXECUTE_EXCEPTION.getCode() + ": " +
-                                    ErrorCode.CHART_TASK_EXECUTE_EXCEPTION.getMessage() + " - " + e.getMessage());
+                            appendAgentContextForController(chartId, execMessage,
+                                    ChartTaskPhaseEnum.AI_GENERATING, "thread_async_execute_exception"));
                 }
             }, threadPoolExecutor);
         } catch (RejectedExecutionException e) {
             log.error("线程池繁忙，异步任务提交失败，chartId={}, userId={}, status={}",
                     chartId, loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
+            String execMessage = ErrorCode.CHART_TASK_REJECTED.getCode() + ": "
+                    + ErrorCode.CHART_TASK_REJECTED.getMessage();
             chartService.handleChartUpdateError(chartId,
-                    ErrorCode.CHART_TASK_REJECTED.getCode() + ": " + ErrorCode.CHART_TASK_REJECTED.getMessage());
+                    appendAgentContextForController(chartId, execMessage,
+                            null, "thread_async_submit_rejected"));
             throw new BusinessException(ErrorCode.CHART_TASK_REJECTED);
         }
 
@@ -457,9 +463,11 @@ public class ChartController {
         } catch (Exception e) {
             log.error("MQ异步图表任务投递失败，chartId={}, userId={}, status={}",
                     chartId, loginUser.getId(), ChartStatusEnum.FAILED.getValue(), e);
+            String execMessage = ErrorCode.CHART_TASK_MESSAGE_SEND_FAILED.getCode() + ": "
+                    + ErrorCode.CHART_TASK_MESSAGE_SEND_FAILED.getMessage();
             chartService.handleChartUpdateError(chartId,
-                    ErrorCode.CHART_TASK_MESSAGE_SEND_FAILED.getCode() + ": "
-                            + ErrorCode.CHART_TASK_MESSAGE_SEND_FAILED.getMessage());
+                    appendAgentContextForController(chartId, execMessage,
+                            null, "mq_message_send_failed"));
             throw new BusinessException(ErrorCode.CHART_TASK_MESSAGE_SEND_FAILED);
         }
         return ResultUtils.success(biResponse);
@@ -474,6 +482,17 @@ public class ChartController {
         ThrowUtils.throwIf(biResponse == null || biResponse.getChartId() == null || biResponse.getChartId() <= 0,
                 ErrorCode.SYSTEM_ERROR, "图表任务创建失败");
         return biResponse.getChartId();
+    }
+
+    private String appendAgentContextForController(long chartId, String execMessage,
+                                                   ChartTaskPhaseEnum phase, String detail) {
+        ChartAgentExecutionContext executionContext = ChartAgentExecutionContext.create(chartId);
+        if (phase != null) {
+            executionContext.markPhase(phase, detail);
+        }
+        executionContext.markPhase(ChartTaskPhaseEnum.FAILED,
+                StringUtils.defaultIfBlank(detail, "controller_failure_recorded"));
+        return execMessage + " | " + executionContext.buildContextFragment();
     }
 
     /**
