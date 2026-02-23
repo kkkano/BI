@@ -1,6 +1,7 @@
 package com.yupi.springbootinit.controller;
 
 import cn.hutool.core.io.FileUtil;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yupi.springbootinit.annotation.AuthCheck;
 import com.yupi.springbootinit.bizmq.BiMessageProducer;
@@ -64,6 +65,9 @@ public class ChartController {
 
     /** 上传文件大小上限：1 MB */
     private static final long MAX_FILE_SIZE = 1024 * 1024L;
+
+    /** 批量任务状态查询上限 */
+    private static final int MAX_BATCH_TASK_STATUS_SIZE = 20;
 
     @Resource
     private ChartService chartService;
@@ -180,7 +184,9 @@ public class ChartController {
                                                          HttpServletRequest request) {
         ThrowUtils.throwIf(chartId <= 0, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
-        Chart chart = chartService.getById(chartId);
+        QueryWrapper<Chart> queryWrapper = buildTaskStatusQueryWrapper();
+        queryWrapper.eq("id", chartId);
+        Chart chart = chartService.getOne(queryWrapper);
         ThrowUtils.throwIf(chart == null, ErrorCode.NOT_FOUND_ERROR);
         // 仅本人或管理员可看任务详情
         if (!Objects.equals(chart.getUserId(), loginUser.getId()) && !userService.isAdmin(request)) {
@@ -203,11 +209,15 @@ public class ChartController {
         ThrowUtils.throwIf(chartIds == null || chartIds.isEmpty(), ErrorCode.PARAMS_ERROR,
                 "图表 id 列表不能为空");
         Set<Long> chartIdSet = new LinkedHashSet<>(chartIds);
+        ThrowUtils.throwIf(chartIdSet.size() > MAX_BATCH_TASK_STATUS_SIZE, ErrorCode.PARAMS_ERROR,
+                "单次最多查询 20 个图表");
 
         User loginUser = userService.getLoginUser(request);
         boolean isAdmin = userService.isAdmin(request);
 
-        List<Chart> charts = chartService.listByIds(chartIdSet);
+        QueryWrapper<Chart> queryWrapper = buildTaskStatusQueryWrapper();
+        queryWrapper.in("id", chartIdSet);
+        List<Chart> charts = chartService.list(queryWrapper);
         if (charts == null || charts.isEmpty()) {
             return ResultUtils.success(new ArrayList<>());
         }
@@ -434,6 +444,17 @@ public class ChartController {
         vo.setCreateTime(chart.getCreateTime());
         vo.setUpdateTime(chart.getUpdateTime());
         return vo;
+    }
+
+    /**
+     * 任务状态查询通用字段（避免读取 chartData 大字段）
+     */
+    private QueryWrapper<Chart> buildTaskStatusQueryWrapper() {
+        QueryWrapper<Chart> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "name", "goal", "chartType", "status", "execMessage",
+                "genChart", "genResult", "userId", "createTime", "updateTime");
+        queryWrapper.eq("isDelete", false);
+        return queryWrapper;
     }
 
     /**

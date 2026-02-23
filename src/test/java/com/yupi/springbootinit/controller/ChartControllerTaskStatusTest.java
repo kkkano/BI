@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,7 +63,7 @@ class ChartControllerTaskStatusTest {
 
         when(userService.getLoginUser(request)).thenReturn(loginUser);
         when(userService.isAdmin(request)).thenReturn(false);
-        when(chartService.getById(chartId)).thenReturn(chart);
+        when(chartService.getOne(any())).thenReturn(chart);
 
         BaseResponse<ChartTaskStatusVO> response = chartController.getChartTaskStatus(chartId, request);
 
@@ -83,7 +83,7 @@ class ChartControllerTaskStatusTest {
 
         when(userService.getLoginUser(request)).thenReturn(loginUser);
         when(userService.isAdmin(request)).thenReturn(false);
-        when(chartService.getById(chartId)).thenReturn(chart);
+        when(chartService.getOne(any())).thenReturn(chart);
 
         BaseResponse<ChartTaskStatusVO> response = chartController.getChartTaskStatus(chartId, request);
 
@@ -102,7 +102,7 @@ class ChartControllerTaskStatusTest {
 
         when(userService.getLoginUser(request)).thenReturn(loginUser);
         when(userService.isAdmin(request)).thenReturn(false);
-        when(chartService.getById(chartId)).thenReturn(chart);
+        when(chartService.getOne(any())).thenReturn(chart);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> chartController.getChartTaskStatus(chartId, request));
@@ -130,7 +130,7 @@ class ChartControllerTaskStatusTest {
 
         when(userService.getLoginUser(request)).thenReturn(loginUser);
         when(userService.isAdmin(request)).thenReturn(false);
-        when(chartService.listByIds(anyCollection()))
+        when(chartService.list(any()))
                 .thenReturn(Arrays.asList(ownedRunningChart, anotherUserChart, ownedSucceedChart));
 
         BaseResponse<List<ChartTaskStatusVO>> response = chartController.getChartTaskStatusBatch(batchRequest, request);
@@ -158,7 +158,7 @@ class ChartControllerTaskStatusTest {
 
         when(userService.getLoginUser(request)).thenReturn(loginUser);
         when(userService.isAdmin(request)).thenReturn(true);
-        when(chartService.listByIds(anyCollection())).thenReturn(Arrays.asList(chartA, chartB));
+        when(chartService.list(any())).thenReturn(Arrays.asList(chartA, chartB));
 
         BaseResponse<List<ChartTaskStatusVO>> response = chartController.getChartTaskStatusBatch(batchRequest, request);
 
@@ -187,12 +187,28 @@ class ChartControllerTaskStatusTest {
 
         when(userService.getLoginUser(request)).thenReturn(loginUser);
         when(userService.isAdmin(request)).thenReturn(false);
-        when(chartService.listByIds(anyCollection())).thenReturn(null);
+        when(chartService.list(any())).thenReturn(null);
 
         BaseResponse<List<ChartTaskStatusVO>> response = chartController.getChartTaskStatusBatch(batchRequest, request);
 
         assertNotNull(response.getData());
         assertEquals(0, response.getData().size());
+    }
+
+    @Test
+    void getChartTaskStatusBatchShouldRejectWhenRequestExceedsMaxSize() {
+        ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
+        batchRequest.setChartIds(Arrays.asList(
+                1L, 2L, 3L, 4L, 5L,
+                6L, 7L, 8L, 9L, 10L,
+                11L, 12L, 13L, 14L, 15L,
+                16L, 17L, 18L, 19L, 20L, 21L));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> chartController.getChartTaskStatusBatch(batchRequest, request));
+
+        assertEquals(ErrorCode.PARAMS_ERROR.getCode(), exception.getCode());
+        assertEquals("单次最多查询 20 个图表", exception.getMessage());
     }
 
     @Test
