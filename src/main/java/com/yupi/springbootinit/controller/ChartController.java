@@ -319,6 +319,7 @@ public class ChartController {
     @ApiOperation(value = "智能分析（同步）")
     public BaseResponse<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
                                                  @Valid GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+        validateGenChartRequest(genChartByAiRequest);
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
         String chartType = genChartByAiRequest.getChartType();
@@ -349,6 +350,7 @@ public class ChartController {
     @ApiOperation(value = "智能分析（异步线程池）")
     public BaseResponse<BiResponse> genChartByAiAsync(@RequestPart("file") MultipartFile multipartFile,
                                                       @Valid GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+        validateGenChartRequest(genChartByAiRequest);
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
         String chartType = genChartByAiRequest.getChartType();
@@ -414,6 +416,7 @@ public class ChartController {
     @ApiOperation(value = "智能分析（异步消息队列）")
     public BaseResponse<BiResponse> genChartByAiAsyncMq(@RequestPart("file") MultipartFile multipartFile,
                                                         @Valid GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+        validateGenChartRequest(genChartByAiRequest);
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
         String chartType = genChartByAiRequest.getChartType();
@@ -480,6 +483,15 @@ public class ChartController {
                 "genChart", "genResult", "userId", "createTime", "updateTime");
         queryWrapper.eq("isDelete", false);
         return queryWrapper;
+    }
+
+    /**
+     * 校验 gen 接口请求参数，避免请求体缺失时出现空指针
+     */
+    private void validateGenChartRequest(GenChartByAiRequest genChartByAiRequest) {
+        ThrowUtils.throwIf(genChartByAiRequest == null, ErrorCode.PARAMS_ERROR, "请求参数为空");
+        ThrowUtils.throwIf(StringUtils.isBlank(genChartByAiRequest.getGoal()),
+                ErrorCode.PARAMS_ERROR, "目标为空");
     }
 
     /**
