@@ -34,8 +34,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * 图表接口
@@ -293,38 +295,42 @@ public class ChartController {
         String userInput = chartService.buildUserInput(goal, chartType, csvData);
 
         // 先入库，状态设为等待
-        Chart chart = new Chart();
-        chart.setName(name);
-        chart.setGoal(goal);
-        chart.setChartData(csvData);
-        chart.setChartType(chartType);
-        chart.setStatus(ChartStatusEnum.WAIT.getValue());
-        chart.setUserId(loginUser.getId());
-        boolean saveResult = chartService.save(chart);
-        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+        Chart chart = chartService.buildWaitChart(name, goal, chartType, csvData, loginUser.getId());
+        chartService.saveWaitChart(chart);
 
         // 异步执行 AI 分析
-        // 当线程池满时，RejectedExecutionException 会抛出，由全局异常处理器兜底
-        CompletableFuture.runAsync(() -> {
-            boolean runningUpdated = chartService.updateChartStatusToRunning(chart.getId());
-            if (!runningUpdated) {
-                chartService.handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
-                return;
-            }
-            // 调用 AI
-            String aiResult = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
-            String[] parsedResult = chartService.parseAiResult(aiResult);
-            if (parsedResult == null) {
-                chartService.handleChartUpdateError(chart.getId(), "AI 生成错误");
-                return;
-            }
-            String genChart = parsedResult[0];
-            String genResult = parsedResult[1];
-            boolean succeedUpdated = chartService.updateChartResultToSucceed(chart.getId(), genChart, genResult);
-            if (!succeedUpdated) {
-                chartService.handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
-            }
-        }, threadPoolExecutor);
+        // 当线程池满时，降级把任务状态置为失败，避免任务长期停留在 wait
+        try {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    boolean runningUpdated = chartService.updateChartStatusToRunning(chart.getId());
+                    if (!runningUpdated) {
+                        chartService.handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
+                        return;
+                    }
+                    // 调用 AI
+                    String aiResult = aiManager.doChat(CommonConstant.BI_MODEL_ID, userInput);
+                    String[] parsedResult = chartService.parseAiResult(aiResult);
+                    if (parsedResult == null) {
+                        chartService.handleChartUpdateError(chart.getId(), "AI 生成错误");
+                        return;
+                    }
+                    String genChart = parsedResult[0];
+                    String genResult = parsedResult[1];
+                    boolean succeedUpdated = chartService.updateChartResultToSucceed(chart.getId(), genChart, genResult);
+                    if (!succeedUpdated) {
+                        chartService.handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
+                    }
+                } catch (Exception e) {
+                    log.error("异步生成图表异常，chartId={}", chart.getId(), e);
+                    chartService.handleChartUpdateError(chart.getId(), "图表生成异常：" + e.getMessage());
+                }
+            }, threadPoolExecutor);
+        } catch (RejectedExecutionException e) {
+            log.error("线程池繁忙，异步任务提交失败，chartId={}", chart.getId(), e);
+            chartService.handleChartUpdateError(chart.getId(), "系统繁忙，请稍后重试");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "当前系统繁忙，请稍后重试");
+        }
 
         BiResponse biResponse = new BiResponse();
         biResponse.setChartId(chart.getId());
@@ -350,15 +356,8 @@ public class ChartController {
         String userInput = chartService.buildUserInput(goal, chartType, csvData);
 
         // 先入库，状态设为等待
-        Chart chart = new Chart();
-        chart.setName(name);
-        chart.setGoal(goal);
-        chart.setChartData(csvData);
-        chart.setChartType(chartType);
-        chart.setStatus(ChartStatusEnum.WAIT.getValue());
-        chart.setUserId(loginUser.getId());
-        boolean saveResult = chartService.save(chart);
-        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+        Chart chart = chartService.buildWaitChart(name, goal, chartType, csvData, loginUser.getId());
+        chartService.saveWaitChart(chart);
 
         // 发送消息到 MQ，由消费者异步处理
         long newChartId = chart.getId();
@@ -377,7 +376,8 @@ public class ChartController {
     private void validateUploadFile(MultipartFile multipartFile) {
         ThrowUtils.throwIf(multipartFile.getSize() > MAX_FILE_SIZE, ErrorCode.PARAMS_ERROR, "文件超过 1M");
         String suffix = FileUtil.getSuffix(multipartFile.getOriginalFilename());
-        ThrowUtils.throwIf(!VALID_FILE_SUFFIXES.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
+        ThrowUtils.throwIf(!VALID_FILE_SUFFIXES.contains(suffix.toLowerCase(Locale.ROOT)),
+                ErrorCode.PARAMS_ERROR, "文件后缀非法");
     }
 
     /**
