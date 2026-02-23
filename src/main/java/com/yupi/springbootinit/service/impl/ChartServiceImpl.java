@@ -171,10 +171,16 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     public String[] generateAndPersistResult(long chartId, String userInput) {
         String[] parsedResult = generateAndParseChartResult(userInput);
         if (parsedResult == null) {
+            handleChartUpdateError(chartId,
+                    ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getCode() + ": " +
+                            ErrorCode.CHART_TASK_AI_GENERATE_FAILED.getMessage());
             return null;
         }
         boolean updated = updateChartResultToSucceed(chartId, parsedResult[0], parsedResult[1]);
         if (!updated) {
+            handleChartUpdateError(chartId,
+                    ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getCode() + ": " +
+                            ErrorCode.CHART_TASK_SUCCEED_UPDATE_FAILED.getMessage());
             return null;
         }
         return parsedResult;
