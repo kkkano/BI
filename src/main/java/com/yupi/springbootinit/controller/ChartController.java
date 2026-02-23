@@ -20,6 +20,9 @@ import com.yupi.springbootinit.model.vo.ChartTaskStatusVO;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
 import com.yupi.springbootinit.utils.ExcelUtils;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -42,6 +45,7 @@ import java.util.concurrent.RejectedExecutionException;
 @RestController
 @RequestMapping("/chart")
 @Slf4j
+@Api(tags = "图表管理")
 public class ChartController {
 
     /** 支持上传的文件后缀白名单（统一维护） */
@@ -73,6 +77,7 @@ public class ChartController {
      * 创建图表
      */
     @PostMapping("/add")
+    @ApiOperation(value = "创建图表")
     public BaseResponse<Long> addChart(@RequestBody ChartAddRequest chartAddRequest, HttpServletRequest request) {
         if (chartAddRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -91,6 +96,7 @@ public class ChartController {
      * 删除图表
      */
     @PostMapping("/delete")
+    @ApiOperation(value = "删除图表")
     public BaseResponse<Boolean> deleteChart(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -112,6 +118,7 @@ public class ChartController {
      */
     @PostMapping("/update")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @ApiOperation(value = "更新图表（管理员）")
     public BaseResponse<Boolean> updateChart(@RequestBody ChartUpdateRequest chartUpdateRequest) {
         if (chartUpdateRequest == null || chartUpdateRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -129,6 +136,10 @@ public class ChartController {
      * 根据 id 获取图表
      */
     @GetMapping("/get")
+    @ApiOperation(value = "根据 id 获取图表")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "id", value = "图表 id", required = true, dataType = "long", paramType = "query")
+    })
     public BaseResponse<Chart> getChartById(long id, HttpServletRequest request) {
         if (id <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -146,6 +157,9 @@ public class ChartController {
      */
     @GetMapping("/task/status")
     @ApiOperation(value = "获取图表任务状态")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "chartId", value = "图表 id", required = true, dataType = "long", paramType = "query")
+    })
     public BaseResponse<ChartTaskStatusVO> getChartTaskStatus(long chartId, HttpServletRequest request) {
         ThrowUtils.throwIf(chartId <= 0, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
@@ -171,8 +185,10 @@ public class ChartController {
      * 分页获取图表列表
      */
     @PostMapping("/list/page")
+    @ApiOperation(value = "分页获取图表列表")
     public BaseResponse<Page<Chart>> listChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
                                                      HttpServletRequest request) {
+        ThrowUtils.throwIf(chartQueryRequest == null, ErrorCode.PARAMS_ERROR);
         long current = chartQueryRequest.getCurrent();
         long size = chartQueryRequest.getPageSize();
         // 限制爬虫
@@ -186,6 +202,7 @@ public class ChartController {
      * 分页获取当前用户的图表列表
      */
     @PostMapping("/my/list/page")
+    @ApiOperation(value = "分页获取当前用户图表列表")
     public BaseResponse<Page<Chart>> listMyChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
                                                        HttpServletRequest request) {
         if (chartQueryRequest == null) {
@@ -208,6 +225,7 @@ public class ChartController {
      * 编辑图表（用户）
      */
     @PostMapping("/edit")
+    @ApiOperation(value = "编辑图表（用户）")
     public BaseResponse<Boolean> editChart(@RequestBody ChartEditRequest chartEditRequest, HttpServletRequest request) {
         if (chartEditRequest == null || chartEditRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -231,6 +249,7 @@ public class ChartController {
      * 直接调用 AI，阻塞等待结果
      */
     @PostMapping("/gen")
+    @ApiOperation(value = "智能分析（同步）")
     public BaseResponse<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
                                                  @Valid GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
         String name = genChartByAiRequest.getName();
@@ -275,6 +294,7 @@ public class ChartController {
      * 立即返回 chartId，后台异步执行 AI 分析，前端轮询 /chart/task/status 获取结果
      */
     @PostMapping("/gen/async")
+    @ApiOperation(value = "智能分析（异步线程池）")
     public BaseResponse<BiResponse> genChartByAiAsync(@RequestPart("file") MultipartFile multipartFile,
                                                       @Valid GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
         String name = genChartByAiRequest.getName();
@@ -319,6 +339,7 @@ public class ChartController {
      * 立即返回 chartId，通过 RabbitMQ 异步处理 AI 分析
      */
     @PostMapping("/gen/async/mq")
+    @ApiOperation(value = "智能分析（异步消息队列）")
     public BaseResponse<BiResponse> genChartByAiAsyncMq(@RequestPart("file") MultipartFile multipartFile,
                                                         @Valid GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
         String name = genChartByAiRequest.getName();
