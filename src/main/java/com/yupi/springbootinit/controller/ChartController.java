@@ -505,7 +505,7 @@ public class ChartController {
         vo.setGoal(chart.getGoal());
         vo.setChartType(chart.getChartType());
         vo.setStatus(chart.getStatus());
-        vo.setTaskPhase(ChartTaskTraceUtils.resolveTaskPhase(chart.getStatus()));
+        vo.setTaskPhase(ChartTaskTraceUtils.resolveTaskPhase(chart.getStatus(), chart.getExecMessage()));
         vo.setTraceId(ChartTaskTraceUtils.buildTraceId(chart.getId()));
         vo.setExecMessage(chart.getExecMessage());
         TaskFailureInfo failureInfo = ChartTaskTraceUtils.parseFailureInfo(chart.getStatus(), chart.getExecMessage());

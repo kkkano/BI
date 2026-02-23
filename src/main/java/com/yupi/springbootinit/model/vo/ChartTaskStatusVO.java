@@ -25,7 +25,7 @@ public class ChartTaskStatusVO implements Serializable {
     /** wait / running / succeed / failed */
     private String status;
 
-    /** queued / executing / completed / failed / unknown */
+    /** created / status_running_updated / ai_generating / ... */
     private String taskPhase;
 
     /** 可用于串联任务日志的追踪 id */

@@ -18,6 +18,8 @@ import com.yupi.springbootinit.model.enums.ChartTaskPhaseEnum;
 import com.yupi.springbootinit.model.vo.BiResponse;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
+import com.yupi.springbootinit.utils.ChartTaskTraceUtils;
+import com.yupi.springbootinit.utils.ChartTaskTraceUtils.TaskFailureInfo;
 import com.yupi.springbootinit.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
@@ -335,7 +337,15 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         biResponse.setGoal(chart.getGoal());
         biResponse.setChartType(chart.getChartType());
         biResponse.setStatus(chart.getStatus());
+        biResponse.setTaskPhase(ChartTaskTraceUtils.resolveTaskPhase(chart.getStatus(), chart.getExecMessage()));
+        biResponse.setTraceId(ChartTaskTraceUtils.buildTraceId(chart.getId()));
         biResponse.setExecMessage(chart.getExecMessage());
+
+        TaskFailureInfo failureInfo = ChartTaskTraceUtils.parseFailureInfo(chart.getStatus(), chart.getExecMessage());
+        biResponse.setFailureCode(failureInfo.getFailureCode());
+        biResponse.setFailureReason(failureInfo.getFailureMessage());
+        biResponse.setFailureTime(failureInfo.getFailureTime());
+
         biResponse.setCreateTime(chart.getCreateTime());
         biResponse.setUpdateTime(chart.getUpdateTime());
         return biResponse;

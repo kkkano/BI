@@ -25,7 +25,7 @@ public class BiResponse {
     /** 任务状态：wait / running / succeed / failed */
     private String status;
 
-    /** 任务阶段：queued / executing / completed / failed / unknown */
+    /** 任务阶段：created / status_running_updated / ai_generating / ... */
     private String taskPhase;
 
     /** 任务追踪 id，可用于前后端日志串联 */

@@ -2,6 +2,7 @@ package com.yupi.springbootinit.utils;
 
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.model.enums.ChartStatusEnum;
+import com.yupi.springbootinit.model.enums.ChartTaskPhaseEnum;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -10,12 +11,6 @@ import org.apache.commons.lang3.StringUtils;
 public final class ChartTaskTraceUtils {
 
     private static final String TRACE_ID_PREFIX = "chart-task-";
-
-    private static final String PHASE_QUEUED = "queued";
-    private static final String PHASE_EXECUTING = "executing";
-    private static final String PHASE_COMPLETED = "completed";
-    private static final String PHASE_FAILED = "failed";
-    private static final String PHASE_UNKNOWN = "unknown";
 
     private ChartTaskTraceUtils() {
     }
@@ -28,19 +23,30 @@ public final class ChartTaskTraceUtils {
     }
 
     public static String resolveTaskPhase(String status) {
+        return resolveTaskPhase(status, null);
+    }
+
+    /**
+     * 优先读取 execMessage 里的 agentPhase；缺失时按任务状态给出兼容阶段。
+     */
+    public static String resolveTaskPhase(String status, String execMessage) {
+        String agentPhase = extractFieldValue(execMessage, "agentPhase");
+        if (isKnownTaskPhase(agentPhase)) {
+            return agentPhase;
+        }
         if (ChartStatusEnum.WAIT.getValue().equals(status)) {
-            return PHASE_QUEUED;
+            return ChartTaskPhaseEnum.CREATED.getValue();
         }
         if (ChartStatusEnum.RUNNING.getValue().equals(status)) {
-            return PHASE_EXECUTING;
+            return ChartTaskPhaseEnum.AI_GENERATING.getValue();
         }
         if (ChartStatusEnum.SUCCEED.getValue().equals(status)) {
-            return PHASE_COMPLETED;
+            return ChartTaskPhaseEnum.FINISHED.getValue();
         }
         if (ChartStatusEnum.FAILED.getValue().equals(status)) {
-            return PHASE_FAILED;
+            return ChartTaskPhaseEnum.FAILED.getValue();
         }
-        return PHASE_UNKNOWN;
+        return null;
     }
 
     public static TaskFailureInfo parseFailureInfo(String status, String execMessage) {
@@ -83,6 +89,18 @@ public final class ChartTaskTraceUtils {
         }
         String value = StringUtils.trim(content.substring(valueStart, valueEnd));
         return StringUtils.isBlank(value) ? null : value;
+    }
+
+    private static boolean isKnownTaskPhase(String phase) {
+        if (StringUtils.isBlank(phase)) {
+            return false;
+        }
+        for (ChartTaskPhaseEnum phaseEnum : ChartTaskPhaseEnum.values()) {
+            if (phaseEnum.getValue().equals(phase)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static final class TaskFailureInfo {
