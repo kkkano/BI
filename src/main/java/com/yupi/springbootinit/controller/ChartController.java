@@ -199,13 +199,18 @@ public class ChartController {
             @RequestBody @Valid ChartTaskStatusBatchRequest batchRequest,
             HttpServletRequest request) {
         ThrowUtils.throwIf(batchRequest == null, ErrorCode.PARAMS_ERROR);
-        Set<Long> chartIdSet = new LinkedHashSet<>(batchRequest.getChartIds());
-        ThrowUtils.throwIf(chartIdSet.isEmpty(), ErrorCode.PARAMS_ERROR);
+        List<Long> chartIds = batchRequest.getChartIds();
+        ThrowUtils.throwIf(chartIds == null || chartIds.isEmpty(), ErrorCode.PARAMS_ERROR,
+                "图表 id 列表不能为空");
+        Set<Long> chartIdSet = new LinkedHashSet<>(chartIds);
 
         User loginUser = userService.getLoginUser(request);
         boolean isAdmin = userService.isAdmin(request);
 
         List<Chart> charts = chartService.listByIds(chartIdSet);
+        if (charts == null || charts.isEmpty()) {
+            return ResultUtils.success(new ArrayList<>());
+        }
         Map<Long, Chart> chartMap = new HashMap<>(charts.size());
         for (Chart chart : charts) {
             chartMap.put(chart.getId(), chart);

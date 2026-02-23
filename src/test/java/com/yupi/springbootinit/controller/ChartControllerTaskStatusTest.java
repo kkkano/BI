@@ -170,6 +170,32 @@ class ChartControllerTaskStatusTest {
     }
 
     @Test
+    void getChartTaskStatusBatchShouldRejectNullChartIds() {
+        ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> chartController.getChartTaskStatusBatch(batchRequest, request));
+
+        assertEquals(ErrorCode.PARAMS_ERROR.getCode(), exception.getCode());
+    }
+
+    @Test
+    void getChartTaskStatusBatchShouldReturnEmptyWhenQueryResultIsNull() {
+        User loginUser = buildUser(600L);
+        ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
+        batchRequest.setChartIds(Arrays.asList(31L, 32L));
+
+        when(userService.getLoginUser(request)).thenReturn(loginUser);
+        when(userService.isAdmin(request)).thenReturn(false);
+        when(chartService.listByIds(anyCollection())).thenReturn(null);
+
+        BaseResponse<List<ChartTaskStatusVO>> response = chartController.getChartTaskStatusBatch(batchRequest, request);
+
+        assertNotNull(response.getData());
+        assertEquals(0, response.getData().size());
+    }
+
+    @Test
     void listChartByPageShouldRequireAdminRole() throws NoSuchMethodException {
         Method method = ChartController.class.getMethod("listChartByPage", ChartQueryRequest.class, HttpServletRequest.class);
 
