@@ -18,10 +18,10 @@ public class ChartTaskStatusBatchVO implements Serializable {
     /** 请求中的图表 id 数量（去重后） */
     private Integer requestedCount;
 
-    /** 去重后识别出的重复图表 id 数量 */
+    /** 去重过程中剔除的重复图表 id 次数（rawRequestedCount - requestedCount） */
     private Integer duplicateCount;
 
-    /** 重复出现的图表 id（去重后，按首次识别顺序返回） */
+    /** 重复出现过的图表 id（去重后，按首次识别顺序返回） */
     private List<Long> duplicateChartIds = new ArrayList<>();
 
     /** 成功返回任务状态的数量 */

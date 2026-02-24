@@ -276,10 +276,12 @@ public class ChartController {
             taskStatusList.add(buildTaskStatusVO(chart, succeedContentMap.get(chartId)));
         }
 
+        int duplicateCount = Math.max(normalizedChartIds.getRawRequestedCount() - chartIdSet.size(), 0);
+
         ChartTaskStatusBatchVO batchVO = new ChartTaskStatusBatchVO();
         batchVO.setRawRequestedCount(normalizedChartIds.getRawRequestedCount());
         batchVO.setRequestedCount(chartIdSet.size());
-        batchVO.setDuplicateCount(normalizedChartIds.getDuplicateChartIds().size());
+        batchVO.setDuplicateCount(duplicateCount);
         batchVO.setDuplicateChartIds(normalizedChartIds.getDuplicateChartIds());
         batchVO.setReturnedCount(taskStatusList.size());
         batchVO.setUnavailableCount(unavailableChartIds.size());
