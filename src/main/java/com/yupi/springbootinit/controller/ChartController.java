@@ -129,8 +129,9 @@ public class ChartController {
         if (!Objects.equals(oldChart.getUserId(), user.getId()) && !userService.isAdmin(request)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
-        boolean b = chartService.removeById(id);
-        return ResultUtils.success(b);
+        boolean result = chartService.removeById(id);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图表删除失败");
+        return ResultUtils.success(true);
     }
 
     /**
@@ -149,7 +150,8 @@ public class ChartController {
         Chart oldChart = chartService.getById(id);
         ThrowUtils.throwIf(oldChart == null, ErrorCode.NOT_FOUND_ERROR);
         boolean result = chartService.updateById(chart);
-        return ResultUtils.success(result);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图表更新失败");
+        return ResultUtils.success(true);
     }
 
     /**
@@ -355,7 +357,8 @@ public class ChartController {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         boolean result = chartService.updateById(chart);
-        return ResultUtils.success(result);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图表编辑失败");
+        return ResultUtils.success(true);
     }
 
     /**
