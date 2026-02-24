@@ -5,6 +5,9 @@ import com.yupi.springbootinit.model.enums.ChartStatusEnum;
 import com.yupi.springbootinit.model.enums.ChartTaskPhaseEnum;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * Task trace helper for async chart generation.
  */
@@ -49,18 +52,22 @@ public final class ChartTaskTraceUtils {
         return null;
     }
 
+    /**
+     * 解析失败任务的结构化错误信息。
+     */
     public static TaskFailureInfo parseFailureInfo(String status, String execMessage) {
         if (!ChartStatusEnum.FAILED.getValue().equals(status)) {
             return TaskFailureInfo.empty();
         }
+
+        String defaultFailureCode = String.valueOf(ErrorCode.SYSTEM_ERROR.getCode());
         if (StringUtils.isBlank(execMessage)) {
-            return new TaskFailureInfo(ErrorCode.SYSTEM_ERROR.getCode(),
-                    ErrorCode.SYSTEM_ERROR.getMessage(), null);
+            return new TaskFailureInfo(defaultFailureCode, ErrorCode.SYSTEM_ERROR.getMessage(), null);
         }
 
         String failureCode = extractFieldValue(execMessage, "errorType");
         if (StringUtils.isBlank(failureCode)) {
-            failureCode = ErrorCode.SYSTEM_ERROR.getCode();
+            failureCode = defaultFailureCode;
         }
         String failureTime = extractFieldValue(execMessage, "timestamp");
         String failureMessage = extractFieldValue(execMessage, "message");
@@ -70,25 +77,20 @@ public final class ChartTaskTraceUtils {
         return new TaskFailureInfo(failureCode, failureMessage, failureTime);
     }
 
+    /**
+     * 仅匹配格式化片段中的 key=value（在字符串开头或 | 分隔后），
+     * 避免误命中 message 文本中的同名子串。
+     */
     private static String extractFieldValue(String content, String key) {
         if (StringUtils.isBlank(content) || StringUtils.isBlank(key)) {
             return null;
         }
-        String marker = key + "=";
-        int startIndex = content.indexOf(marker);
-        if (startIndex < 0) {
+        Pattern fieldPattern = Pattern.compile("(?:^|\\|)\\s*" + Pattern.quote(key) + "\\s*=\\s*([^|]+)");
+        Matcher matcher = fieldPattern.matcher(content);
+        if (!matcher.find()) {
             return null;
         }
-        int valueStart = startIndex + marker.length();
-        if (valueStart >= content.length()) {
-            return null;
-        }
-        int valueEnd = content.indexOf('|', valueStart);
-        if (valueEnd < 0) {
-            valueEnd = content.length();
-        }
-        String value = StringUtils.trim(content.substring(valueStart, valueEnd));
-        return StringUtils.isBlank(value) ? null : value;
+        return StringUtils.trimToNull(matcher.group(1));
     }
 
     private static boolean isKnownTaskPhase(String phase) {
