@@ -2,6 +2,7 @@ package com.yupi.springbootinit.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.yupi.springbootinit.common.ErrorCode;
+import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.service.impl.ChartServiceImpl;
@@ -9,8 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -75,6 +78,40 @@ class ChartServiceImplTest {
         QueryWrapper<Chart> wrapper = chartService.getQueryWrapper(request);
 
         assertNull(wrapper.getSqlSelect());
+    }
+
+    @Test
+    void getQueryWrapperShouldNormalizeStatusFilterToLowerCase() {
+        ChartQueryRequest request = new ChartQueryRequest();
+        request.setStatus(" Running ");
+
+        QueryWrapper<Chart> wrapper = chartService.getQueryWrapper(request);
+
+        assertTrue(wrapper.getParamNameValuePairs().containsValue("running"));
+    }
+
+    @Test
+    void getQueryWrapperShouldRejectUnknownStatusFilter() {
+        ChartQueryRequest request = new ChartQueryRequest();
+        request.setStatus("processing");
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> chartService.getQueryWrapper(request));
+
+        assertEquals(ErrorCode.PARAMS_ERROR.getCode(), exception.getCode());
+        assertEquals("任务状态非法", exception.getMessage());
+    }
+
+    @Test
+    void getQueryWrapperShouldUseFuzzyMatchForGoal() {
+        ChartQueryRequest request = new ChartQueryRequest();
+        request.setGoal(" 销量趋势 ");
+
+        QueryWrapper<Chart> wrapper = chartService.getQueryWrapper(request);
+
+        String sqlSegment = wrapper.getCustomSqlSegment();
+        assertTrue(sqlSegment.toLowerCase().contains("goal like"));
+        assertTrue(wrapper.getParamNameValuePairs().containsValue("销量趋势"));
     }
 
     @Test

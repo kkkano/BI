@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -70,20 +71,27 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
             return queryWrapper;
         }
         Long id = chartQueryRequest.getId();
-        String name = chartQueryRequest.getName();
-        String goal = chartQueryRequest.getGoal();
-        String chartType = chartQueryRequest.getChartType();
-        String status = chartQueryRequest.getStatus();
+        String name = StringUtils.trimToNull(chartQueryRequest.getName());
+        String goal = StringUtils.trimToNull(chartQueryRequest.getGoal());
+        String chartType = StringUtils.trimToNull(chartQueryRequest.getChartType());
+        String status = StringUtils.trimToNull(chartQueryRequest.getStatus());
         Long userId = chartQueryRequest.getUserId();
         Boolean needChartData = chartQueryRequest.getNeedChartData();
         String sortField = chartQueryRequest.getSortField();
         String sortOrder = chartQueryRequest.getSortOrder();
 
+        String normalizedStatus = null;
+        if (StringUtils.isNotBlank(status)) {
+            normalizedStatus = StringUtils.lowerCase(status, Locale.ROOT);
+            ThrowUtils.throwIf(ChartStatusEnum.getEnumByValue(normalizedStatus) == null,
+                    ErrorCode.PARAMS_ERROR, "任务状态非法");
+        }
+
         queryWrapper.eq(id != null && id > 0, "id", id);
         queryWrapper.like(StringUtils.isNotBlank(name), "name", name);
-        queryWrapper.eq(StringUtils.isNotBlank(goal), "goal", goal);
+        queryWrapper.like(StringUtils.isNotBlank(goal), "goal", goal);
         queryWrapper.eq(StringUtils.isNotBlank(chartType), "chartType", chartType);
-        queryWrapper.eq(StringUtils.isNotBlank(status), "status", status);
+        queryWrapper.eq(StringUtils.isNotBlank(normalizedStatus), "status", normalizedStatus);
         queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
         queryWrapper.eq("isDelete", false);
         if (!Boolean.TRUE.equals(needChartData)) {
