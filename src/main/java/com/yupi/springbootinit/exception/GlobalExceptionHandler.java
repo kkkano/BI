@@ -4,6 +4,7 @@ import com.yupi.springbootinit.common.BaseResponse;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.common.ResultUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -25,7 +26,7 @@ import java.util.concurrent.RejectedExecutionException;
  * 全局异常处理器
  *
  * @author <a href="https://github.com/kkkano">kkkano</a>
- * @from <a href="https://github.com/kkkano/BI"</a>
+ * @from <a href="https://github.com/kkkano/BI"></a>
  */
 @RestControllerAdvice
 @Slf4j
@@ -96,6 +97,28 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 请求体 JSON 无法解析（字段类型错误、JSON 结构错误等）
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public BaseResponse<?> httpMessageNotReadableExceptionHandler(HttpMessageNotReadableException e) {
+        log.warn("HttpMessageNotReadableException", e);
+        return ResultUtils.error(ErrorCode.PARAMS_ERROR, "请求体格式错误，请检查 JSON 字段类型与结构");
+    }
+
+    /**
+     * 参数语义非法（用于兜底 IllegalArgumentException）
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public BaseResponse<?> illegalArgumentExceptionHandler(IllegalArgumentException e) {
+        log.warn("IllegalArgumentException", e);
+        String message = e.getMessage();
+        if (message == null || message.trim().isEmpty()) {
+            message = ErrorCode.PARAMS_ERROR.getMessage();
+        }
+        return ResultUtils.error(ErrorCode.PARAMS_ERROR.getCode(), message);
+    }
+
+    /**
      * 请求方法不支持
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -124,26 +147,35 @@ public class GlobalExceptionHandler {
 
     /**
      * 线程池任务队列已满时抛出，返回更友好的提示
-     * 异步接口注释说"由全局异常处理器兜底"，此处补全对应处理
      */
     @ExceptionHandler(RejectedExecutionException.class)
     public BaseResponse<?> rejectedExecutionExceptionHandler(RejectedExecutionException e) {
         log.error("RejectedExecutionException: 任务队列已满", e);
-        return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "当前请求繁忙，请稍后再试");
+        return ResultUtils.error(ErrorCode.CHART_TASK_REJECTED);
     }
 
     /**
      * 处理异步链路包装异常（CompletableFuture / Future）
-     * 优先透传 BusinessException，其余按系统错误返回统一 BaseResponse
+     * 优先透传业务异常或参数类异常，减少前端收到无意义的“系统错误”
      */
     @ExceptionHandler({CompletionException.class, ExecutionException.class})
     public BaseResponse<?> asyncWrappedExceptionHandler(Exception e) {
-        Throwable cause = e.getCause();
-        if (cause instanceof BusinessException) {
-            BusinessException businessException = (BusinessException) cause;
+        BusinessException businessException = findCause(e, BusinessException.class);
+        if (businessException != null) {
             log.error("Async wrapped BusinessException", e);
             return ResultUtils.error(businessException.getCode(), businessException.getMessage());
         }
+
+        RejectedExecutionException rejectedExecutionException = findCause(e, RejectedExecutionException.class);
+        if (rejectedExecutionException != null) {
+            return rejectedExecutionExceptionHandler(rejectedExecutionException);
+        }
+
+        IllegalArgumentException illegalArgumentException = findCause(e, IllegalArgumentException.class);
+        if (illegalArgumentException != null) {
+            return illegalArgumentExceptionHandler(illegalArgumentException);
+        }
+
         log.error("Async wrapped exception", e);
         return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "系统错误");
     }
@@ -152,5 +184,19 @@ public class GlobalExceptionHandler {
     public BaseResponse<?> runtimeExceptionHandler(RuntimeException e) {
         log.error("RuntimeException", e);
         return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "系统错误");
+    }
+
+    /**
+     * 从异常链中查找指定类型异常
+     */
+    private <T extends Throwable> T findCause(Throwable throwable, Class<T> targetType) {
+        Throwable cursor = throwable;
+        while (cursor != null) {
+            if (targetType.isInstance(cursor)) {
+                return targetType.cast(cursor);
+            }
+            cursor = cursor.getCause();
+        }
+        return null;
     }
 }
