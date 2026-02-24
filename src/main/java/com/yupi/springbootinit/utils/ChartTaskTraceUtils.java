@@ -5,6 +5,8 @@ import com.yupi.springbootinit.model.enums.ChartStatusEnum;
 import com.yupi.springbootinit.model.enums.ChartTaskPhaseEnum;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,6 +16,14 @@ import java.util.regex.Pattern;
 public final class ChartTaskTraceUtils {
 
     private static final String TRACE_ID_PREFIX = "chart-task-";
+    /**
+     * 匹配结构化片段中的 key=value 起始位置。
+     *
+     * <p>示例：
+     * chartId=1 | errorType=50014 | message=CSV 缺失 | agentPhase=failed
+     */
+    private static final Pattern STRUCTURED_FIELD_PATTERN =
+            Pattern.compile("(?:^|\\|)\\s*([a-zA-Z][a-zA-Z0-9]*)\\s*=\\s*");
 
     private ChartTaskTraceUtils() {
     }
@@ -33,7 +43,8 @@ public final class ChartTaskTraceUtils {
      * 优先读取 execMessage 里的 agentPhase；缺失时按任务状态给出兼容阶段。
      */
     public static String resolveTaskPhase(String status, String execMessage) {
-        String agentPhase = extractFieldValue(execMessage, "agentPhase");
+        Map<String, String> fieldMap = parseStructuredFields(execMessage);
+        String agentPhase = fieldMap.get("agentPhase");
         if (isKnownTaskPhase(agentPhase)) {
             return agentPhase;
         }
@@ -65,12 +76,14 @@ public final class ChartTaskTraceUtils {
             return new TaskFailureInfo(defaultFailureCode, ErrorCode.SYSTEM_ERROR.getMessage(), null);
         }
 
-        String failureCode = extractFieldValue(execMessage, "errorType");
+        Map<String, String> fieldMap = parseStructuredFields(execMessage);
+
+        String failureCode = fieldMap.get("errorType");
         if (StringUtils.isBlank(failureCode)) {
             failureCode = defaultFailureCode;
         }
-        String failureTime = extractFieldValue(execMessage, "timestamp");
-        String failureMessage = extractFieldValue(execMessage, "message");
+        String failureTime = fieldMap.get("timestamp");
+        String failureMessage = fieldMap.get("message");
         if (StringUtils.isBlank(failureMessage)) {
             failureMessage = execMessage;
         }
@@ -78,19 +91,34 @@ public final class ChartTaskTraceUtils {
     }
 
     /**
-     * 仅匹配格式化片段中的 key=value（在字符串开头或 | 分隔后），
-     * 避免误命中 message 文本中的同名子串。
+     * 将 execMessage 解析为结构化字段。
+     *
+     * <p>相比按 "|" 直接 split，此实现允许 value 内包含普通 "|" 片段，
+     * 只有在后续片段满足「key=」形态时才判定为新字段起点。
      */
-    private static String extractFieldValue(String content, String key) {
-        if (StringUtils.isBlank(content) || StringUtils.isBlank(key)) {
-            return null;
+    private static Map<String, String> parseStructuredFields(String content) {
+        if (StringUtils.isBlank(content)) {
+            return new HashMap<>();
         }
-        Pattern fieldPattern = Pattern.compile("(?:^|\\|)\\s*" + Pattern.quote(key) + "\\s*=\\s*([^|]+)");
-        Matcher matcher = fieldPattern.matcher(content);
-        if (!matcher.find()) {
-            return null;
+
+        Map<String, String> fieldMap = new HashMap<>();
+        Matcher matcher = STRUCTURED_FIELD_PATTERN.matcher(content);
+        String currentKey = null;
+        int valueStart = -1;
+        while (matcher.find()) {
+            if (currentKey != null && valueStart >= 0) {
+                String value = StringUtils.trimToNull(content.substring(valueStart, matcher.start()));
+                fieldMap.put(currentKey, value);
+            }
+            currentKey = matcher.group(1);
+            valueStart = matcher.end();
         }
-        return StringUtils.trimToNull(matcher.group(1));
+
+        if (currentKey != null && valueStart >= 0 && valueStart <= content.length()) {
+            String value = StringUtils.trimToNull(content.substring(valueStart));
+            fieldMap.put(currentKey, value);
+        }
+        return fieldMap;
     }
 
     private static boolean isKnownTaskPhase(String phase) {

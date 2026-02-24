@@ -51,6 +51,27 @@ class ChartTaskTraceUtilsTest {
     }
 
     @Test
+    void parseFailureInfo_shouldKeepPipeTextWhenNotStructuredField() {
+        String execMessage = "chartId=12 | errorType=50014 | message=CSV 字段缺失 | 请检查上传文件";
+
+        ChartTaskTraceUtils.TaskFailureInfo failureInfo =
+                ChartTaskTraceUtils.parseFailureInfo(ChartStatusEnum.FAILED.getValue(), execMessage);
+
+        Assertions.assertEquals("50014", failureInfo.getFailureCode());
+        Assertions.assertEquals("CSV 字段缺失 | 请检查上传文件", failureInfo.getFailureMessage());
+    }
+
+    @Test
+    void parseFailureInfo_shouldExcludeTrailingAgentContextFromMessage() {
+        String execMessage = "chartId=12 | errorType=50014 | message=CSV 字段缺失 | agentExecId=exec-1 | agentPhase=failed";
+
+        ChartTaskTraceUtils.TaskFailureInfo failureInfo =
+                ChartTaskTraceUtils.parseFailureInfo(ChartStatusEnum.FAILED.getValue(), execMessage);
+
+        Assertions.assertEquals("CSV 字段缺失", failureInfo.getFailureMessage());
+    }
+
+    @Test
     void parseFailureInfo_shouldUseDefaultCodeAndMessageWhenExecMessageBlank() {
         ChartTaskTraceUtils.TaskFailureInfo failureInfo =
                 ChartTaskTraceUtils.parseFailureInfo(ChartStatusEnum.FAILED.getValue(), "   ");
