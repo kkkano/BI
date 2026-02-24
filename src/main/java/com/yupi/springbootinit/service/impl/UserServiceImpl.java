@@ -304,8 +304,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.eq(StringUtils.isNotBlank(userRole), "userRole", userRole);
         queryWrapper.like(StringUtils.isNotBlank(userProfile), "userProfile", userProfile);
         queryWrapper.like(StringUtils.isNotBlank(userName), "userName", userName);
-        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
-                sortField);
+        queryWrapper.orderBy(SqlUtils.validSortField(sortField),
+                CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
         return queryWrapper;
     }
     @Resource
@@ -331,15 +331,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         wrapper.eq("isDelete", 0).eq("id", user.getId());
         User existingUser = userMapper.selectOne(wrapper);
         if (existingUser != null) {
-            LocalDate lastCheckInDate = existingUser.getLastCheckIn().toLocalDate();
+            LocalDateTime lastCheckIn = existingUser.getLastCheckIn();
             LocalDate today = LocalDate.now();
-            if (lastCheckInDate.isBefore(today)) {
+            // 兼容历史空值：首次签到或历史脏数据时，允许直接签到
+            LocalDate lastCheckInDate = lastCheckIn == null ? null : lastCheckIn.toLocalDate();
+            if (lastCheckInDate == null || lastCheckInDate.isBefore(today)) {
                 existingUser.setLastCheckIn(LocalDateTime.now());
 //            existingUser.setUsageCount(existingUser.getUsageCount() + 1);
                 existingUser.setPoints(existingUser.getPoints() + 10);
                 userMapper.update(existingUser, wrapper);
             } else {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR,"今日已签到,请明天再来");
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "今日已签到,请明天再来");
             }
         }
         return existingUser;
