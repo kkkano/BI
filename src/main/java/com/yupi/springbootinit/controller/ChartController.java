@@ -235,7 +235,8 @@ public class ChartController {
 
     private ChartTaskStatusBatchVO queryChartTaskStatusBatch(ChartTaskStatusBatchRequest batchRequest,
                                                              HttpServletRequest request) {
-        Set<Long> chartIdSet = normalizeBatchTaskStatusChartIds(batchRequest);
+        BatchTaskStatusChartIds normalizedChartIds = normalizeBatchTaskStatusChartIds(batchRequest);
+        Set<Long> chartIdSet = normalizedChartIds.getChartIdSet();
 
         User loginUser = userService.getLoginUser(request);
         boolean isAdmin = userService.isAdmin(request);
@@ -276,25 +277,69 @@ public class ChartController {
         }
 
         ChartTaskStatusBatchVO batchVO = new ChartTaskStatusBatchVO();
+        batchVO.setRawRequestedCount(normalizedChartIds.getRawRequestedCount());
         batchVO.setRequestedCount(chartIdSet.size());
+        batchVO.setDuplicateCount(normalizedChartIds.getDuplicateChartIds().size());
+        batchVO.setDuplicateChartIds(normalizedChartIds.getDuplicateChartIds());
         batchVO.setReturnedCount(taskStatusList.size());
+        batchVO.setUnavailableCount(unavailableChartIds.size());
         batchVO.setUnavailableChartIds(unavailableChartIds);
         batchVO.setTaskStatusList(taskStatusList);
         return batchVO;
     }
 
-    private Set<Long> normalizeBatchTaskStatusChartIds(ChartTaskStatusBatchRequest batchRequest) {
+    private BatchTaskStatusChartIds normalizeBatchTaskStatusChartIds(ChartTaskStatusBatchRequest batchRequest) {
         ThrowUtils.throwIf(batchRequest == null, ErrorCode.PARAMS_ERROR);
         List<Long> chartIds = batchRequest.getChartIds();
         ThrowUtils.throwIf(chartIds == null || chartIds.isEmpty(), ErrorCode.PARAMS_ERROR,
                 "图表 id 列表不能为空");
         ThrowUtils.throwIf(chartIds.size() > MAX_BATCH_TASK_STATUS_SIZE, ErrorCode.PARAMS_ERROR,
                 "单次最多查询 20 个图表");
+
+        Set<Long> chartIdSet = new LinkedHashSet<>();
+        Set<Long> duplicateChartIdSet = new LinkedHashSet<>();
         for (Long chartId : chartIds) {
             ThrowUtils.throwIf(chartId == null || chartId <= 0, ErrorCode.PARAMS_ERROR,
                     "图表 id 非法");
+            if (!chartIdSet.add(chartId)) {
+                duplicateChartIdSet.add(chartId);
+            }
         }
-        return new LinkedHashSet<>(chartIds);
+
+        ThrowUtils.throwIf(chartIdSet.size() > MAX_BATCH_TASK_STATUS_SIZE, ErrorCode.PARAMS_ERROR,
+                "单次最多查询 20 个图表");
+
+        return new BatchTaskStatusChartIds(chartIdSet, chartIds.size(), new ArrayList<>(duplicateChartIdSet));
+    }
+
+    /**
+     * 批量任务状态请求中图表 id 的归一化结果
+     */
+    private static class BatchTaskStatusChartIds {
+
+        private final Set<Long> chartIdSet;
+
+        private final int rawRequestedCount;
+
+        private final List<Long> duplicateChartIds;
+
+        BatchTaskStatusChartIds(Set<Long> chartIdSet, int rawRequestedCount, List<Long> duplicateChartIds) {
+            this.chartIdSet = chartIdSet;
+            this.rawRequestedCount = rawRequestedCount;
+            this.duplicateChartIds = duplicateChartIds;
+        }
+
+        Set<Long> getChartIdSet() {
+            return chartIdSet;
+        }
+
+        int getRawRequestedCount() {
+            return rawRequestedCount;
+        }
+
+        List<Long> getDuplicateChartIds() {
+            return duplicateChartIds;
+        }
     }
 
     /**

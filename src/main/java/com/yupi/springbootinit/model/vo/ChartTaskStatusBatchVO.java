@@ -12,11 +12,23 @@ import java.util.List;
 @Data
 public class ChartTaskStatusBatchVO implements Serializable {
 
+    /** 请求中的图表 id 原始数量（未去重） */
+    private Integer rawRequestedCount;
+
     /** 请求中的图表 id 数量（去重后） */
     private Integer requestedCount;
 
+    /** 去重后识别出的重复图表 id 数量 */
+    private Integer duplicateCount;
+
+    /** 重复出现的图表 id（去重后，按首次识别顺序返回） */
+    private List<Long> duplicateChartIds = new ArrayList<>();
+
     /** 成功返回任务状态的数量 */
     private Integer returnedCount;
+
+    /** 未返回任务状态的数量 */
+    private Integer unavailableCount;
 
     /**
      * 未返回任务状态的图表 id（不存在 / 无权限 / 已删除）
