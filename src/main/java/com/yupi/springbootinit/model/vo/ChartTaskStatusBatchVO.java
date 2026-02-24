@@ -27,6 +27,26 @@ public class ChartTaskStatusBatchVO implements Serializable {
     /** 成功返回任务状态的数量 */
     private Integer returnedCount;
 
+    /**
+     * 返回任务中的排队数量（status = wait）
+     */
+    private Integer waitCount;
+
+    /**
+     * 返回任务中的运行中数量（status = running）
+     */
+    private Integer runningCount;
+
+    /**
+     * 返回任务中的成功数量（status = succeed）
+     */
+    private Integer succeedCount;
+
+    /**
+     * 返回任务中的失败数量（status = failed）
+     */
+    private Integer failedCount;
+
     /** 未返回任务状态的数量 */
     private Integer unavailableCount;
 

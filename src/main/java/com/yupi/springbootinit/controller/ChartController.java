@@ -263,6 +263,10 @@ public class ChartController {
 
         List<ChartTaskStatusVO> taskStatusList = new ArrayList<>(chartIdSet.size());
         List<Long> unavailableChartIds = new ArrayList<>();
+        int waitCount = 0;
+        int runningCount = 0;
+        int succeedCount = 0;
+        int failedCount = 0;
         for (Long chartId : chartIdSet) {
             Chart chart = chartMap.get(chartId);
             if (chart == null) {
@@ -273,7 +277,18 @@ public class ChartController {
                 unavailableChartIds.add(chartId);
                 continue;
             }
-            taskStatusList.add(buildTaskStatusVO(chart, succeedContentMap.get(chartId)));
+            ChartTaskStatusVO taskStatusVO = buildTaskStatusVO(chart, succeedContentMap.get(chartId));
+            taskStatusList.add(taskStatusVO);
+            String status = taskStatusVO.getStatus();
+            if (ChartStatusEnum.WAIT.getValue().equals(status)) {
+                waitCount++;
+            } else if (ChartStatusEnum.RUNNING.getValue().equals(status)) {
+                runningCount++;
+            } else if (ChartStatusEnum.SUCCEED.getValue().equals(status)) {
+                succeedCount++;
+            } else if (ChartStatusEnum.FAILED.getValue().equals(status)) {
+                failedCount++;
+            }
         }
 
         int duplicateCount = Math.max(normalizedChartIds.getRawRequestedCount() - chartIdSet.size(), 0);
@@ -284,6 +299,10 @@ public class ChartController {
         batchVO.setDuplicateCount(duplicateCount);
         batchVO.setDuplicateChartIds(normalizedChartIds.getDuplicateChartIds());
         batchVO.setReturnedCount(taskStatusList.size());
+        batchVO.setWaitCount(waitCount);
+        batchVO.setRunningCount(runningCount);
+        batchVO.setSucceedCount(succeedCount);
+        batchVO.setFailedCount(failedCount);
         batchVO.setUnavailableCount(unavailableChartIds.size());
         batchVO.setUnavailableChartIds(unavailableChartIds);
         batchVO.setTaskStatusList(taskStatusList);
