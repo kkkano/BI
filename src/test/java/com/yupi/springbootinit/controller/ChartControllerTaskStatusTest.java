@@ -11,6 +11,7 @@ import com.yupi.springbootinit.model.dto.chart.ChartTaskStatusBatchRequest;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.ChartStatusEnum;
+import com.yupi.springbootinit.model.vo.ChartTaskStatusBatchVO;
 import com.yupi.springbootinit.model.vo.ChartTaskStatusVO;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
@@ -153,6 +154,39 @@ class ChartControllerTaskStatusTest {
         assertEquals(13L, response.getData().get(1).getChartId());
         assertEquals(ownedSucceedChartContent.getGenChart(), response.getData().get(1).getGenChart());
         assertEquals(ownedSucceedChartContent.getGenResult(), response.getData().get(1).getGenResult());
+    }
+
+    @Test
+    void getChartTaskStatusBatchDetailShouldExposeUnavailableChartIds() {
+        User loginUser = buildUser(450L);
+        Chart ownedRunningChart = buildChart(61L, loginUser.getId(), ChartStatusEnum.RUNNING.getValue());
+        Chart ownedSucceedChart = buildChart(62L, loginUser.getId(), ChartStatusEnum.SUCCEED.getValue());
+        Chart anotherUserChart = buildChart(64L, 9000L, ChartStatusEnum.SUCCEED.getValue());
+
+        Chart ownedSucceedChartContent = new Chart();
+        ownedSucceedChartContent.setId(62L);
+        ownedSucceedChartContent.setUserId(loginUser.getId());
+        ownedSucceedChartContent.setGenChart("{\"series\":[1]}");
+        ownedSucceedChartContent.setGenResult("done");
+
+        ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
+        batchRequest.setChartIds(Arrays.asList(61L, 62L, 63L, 64L));
+
+        when(userService.getLoginUser(request)).thenReturn(loginUser);
+        when(userService.isAdmin(request)).thenReturn(false);
+        when(chartService.list(any()))
+                .thenReturn(Arrays.asList(ownedRunningChart, ownedSucceedChart, anotherUserChart))
+                .thenReturn(Collections.singletonList(ownedSucceedChartContent));
+
+        BaseResponse<ChartTaskStatusBatchVO> response = chartController.getChartTaskStatusBatchDetail(batchRequest, request);
+
+        assertNotNull(response.getData());
+        assertEquals(4, response.getData().getRequestedCount());
+        assertEquals(2, response.getData().getReturnedCount());
+        assertEquals(Arrays.asList(63L, 64L), response.getData().getUnavailableChartIds());
+        assertEquals(2, response.getData().getTaskStatusList().size());
+        assertEquals(61L, response.getData().getTaskStatusList().get(0).getChartId());
+        assertEquals(62L, response.getData().getTaskStatusList().get(1).getChartId());
     }
 
     @Test

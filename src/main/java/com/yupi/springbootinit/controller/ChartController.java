@@ -19,6 +19,7 @@ import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.ChartStatusEnum;
 import com.yupi.springbootinit.model.enums.ChartTaskPhaseEnum;
 import com.yupi.springbootinit.model.vo.BiResponse;
+import com.yupi.springbootinit.model.vo.ChartTaskStatusBatchVO;
 import com.yupi.springbootinit.model.vo.ChartTaskStatusVO;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
@@ -214,17 +215,25 @@ public class ChartController {
     public BaseResponse<List<ChartTaskStatusVO>> getChartTaskStatusBatch(
             @RequestBody @Valid ChartTaskStatusBatchRequest batchRequest,
             HttpServletRequest request) {
-        ThrowUtils.throwIf(batchRequest == null, ErrorCode.PARAMS_ERROR);
-        List<Long> chartIds = batchRequest.getChartIds();
-        ThrowUtils.throwIf(chartIds == null || chartIds.isEmpty(), ErrorCode.PARAMS_ERROR,
-                "图表 id 列表不能为空");
-        ThrowUtils.throwIf(chartIds.size() > MAX_BATCH_TASK_STATUS_SIZE, ErrorCode.PARAMS_ERROR,
-                "单次最多查询 20 个图表");
-        for (Long chartId : chartIds) {
-            ThrowUtils.throwIf(chartId == null || chartId <= 0, ErrorCode.PARAMS_ERROR,
-                    "图表 id 非法");
-        }
-        Set<Long> chartIdSet = new LinkedHashSet<>(chartIds);
+        ChartTaskStatusBatchVO batchVO = queryChartTaskStatusBatch(batchRequest, request);
+        return ResultUtils.success(batchVO.getTaskStatusList());
+    }
+
+    /**
+     * 批量获取图表任务状态明细（含不可用任务 id）
+     * 适用于前端需要识别已删除 / 无权限 / 不存在任务的场景
+     */
+    @PostMapping("/task/status/batch/detail")
+    @ApiOperation(value = "批量获取图表任务状态明细")
+    public BaseResponse<ChartTaskStatusBatchVO> getChartTaskStatusBatchDetail(
+            @RequestBody @Valid ChartTaskStatusBatchRequest batchRequest,
+            HttpServletRequest request) {
+        return ResultUtils.success(queryChartTaskStatusBatch(batchRequest, request));
+    }
+
+    private ChartTaskStatusBatchVO queryChartTaskStatusBatch(ChartTaskStatusBatchRequest batchRequest,
+                                                             HttpServletRequest request) {
+        Set<Long> chartIdSet = normalizeBatchTaskStatusChartIds(batchRequest);
 
         User loginUser = userService.getLoginUser(request);
         boolean isAdmin = userService.isAdmin(request);
@@ -235,31 +244,55 @@ public class ChartController {
             queryWrapper.eq("userId", loginUser.getId());
         }
         List<Chart> charts = chartService.list(queryWrapper);
-        if (charts == null || charts.isEmpty()) {
-            return ResultUtils.success(new ArrayList<>());
-        }
-        Map<Long, Chart> chartMap = new HashMap<>(charts.size());
+
+        Map<Long, Chart> chartMap = new HashMap<>();
         Set<Long> succeedChartIdSet = new LinkedHashSet<>();
-        for (Chart chart : charts) {
-            chartMap.put(chart.getId(), chart);
-            if (ChartStatusEnum.SUCCEED.getValue().equals(chart.getStatus())) {
-                succeedChartIdSet.add(chart.getId());
+        if (charts != null && !charts.isEmpty()) {
+            chartMap = new HashMap<>(charts.size());
+            for (Chart chart : charts) {
+                chartMap.put(chart.getId(), chart);
+                if (ChartStatusEnum.SUCCEED.getValue().equals(chart.getStatus())) {
+                    succeedChartIdSet.add(chart.getId());
+                }
             }
         }
         Map<Long, Chart> succeedContentMap = querySucceedContentMap(succeedChartIdSet, isAdmin, loginUser.getId());
 
-        List<ChartTaskStatusVO> responseList = new ArrayList<>();
+        List<ChartTaskStatusVO> taskStatusList = new ArrayList<>(chartIdSet.size());
+        List<Long> unavailableChartIds = new ArrayList<>();
         for (Long chartId : chartIdSet) {
             Chart chart = chartMap.get(chartId);
             if (chart == null) {
+                unavailableChartIds.add(chartId);
                 continue;
             }
             if (!isAdmin && !Objects.equals(chart.getUserId(), loginUser.getId())) {
+                unavailableChartIds.add(chartId);
                 continue;
             }
-            responseList.add(buildTaskStatusVO(chart, succeedContentMap.get(chartId)));
+            taskStatusList.add(buildTaskStatusVO(chart, succeedContentMap.get(chartId)));
         }
-        return ResultUtils.success(responseList);
+
+        ChartTaskStatusBatchVO batchVO = new ChartTaskStatusBatchVO();
+        batchVO.setRequestedCount(chartIdSet.size());
+        batchVO.setReturnedCount(taskStatusList.size());
+        batchVO.setUnavailableChartIds(unavailableChartIds);
+        batchVO.setTaskStatusList(taskStatusList);
+        return batchVO;
+    }
+
+    private Set<Long> normalizeBatchTaskStatusChartIds(ChartTaskStatusBatchRequest batchRequest) {
+        ThrowUtils.throwIf(batchRequest == null, ErrorCode.PARAMS_ERROR);
+        List<Long> chartIds = batchRequest.getChartIds();
+        ThrowUtils.throwIf(chartIds == null || chartIds.isEmpty(), ErrorCode.PARAMS_ERROR,
+                "图表 id 列表不能为空");
+        ThrowUtils.throwIf(chartIds.size() > MAX_BATCH_TASK_STATUS_SIZE, ErrorCode.PARAMS_ERROR,
+                "单次最多查询 20 个图表");
+        for (Long chartId : chartIds) {
+            ThrowUtils.throwIf(chartId == null || chartId <= 0, ErrorCode.PARAMS_ERROR,
+                    "图表 id 非法");
+        }
+        return new LinkedHashSet<>(chartIds);
     }
 
     /**
