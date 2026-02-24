@@ -33,6 +33,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -104,6 +105,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     }
 
     private static final DateTimeFormatter EXEC_MESSAGE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final Pattern STRUCTURED_ERROR_TYPE_PATTERN =
+            Pattern.compile("(?:^|\\|)\\s*errorType\\s*=\\s*([^|]+)");
 
     @Override
     public void handleChartUpdateError(long chartId, String execMessage) {
@@ -368,14 +371,25 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     }
 
     private String extractErrorType(String execMessage) {
+        String defaultErrorCode = String.valueOf(ErrorCode.SYSTEM_ERROR.getCode());
         if (StringUtils.isBlank(execMessage)) {
-            return ErrorCode.SYSTEM_ERROR.getCode();
+            return defaultErrorCode;
         }
+
+        Matcher structuredMatcher = STRUCTURED_ERROR_TYPE_PATTERN.matcher(execMessage);
+        if (structuredMatcher.find()) {
+            String structuredErrorType = StringUtils.trimToNull(structuredMatcher.group(1));
+            if (structuredErrorType != null) {
+                return structuredErrorType;
+            }
+        }
+
         int separatorIndex = execMessage.indexOf(":");
         if (separatorIndex <= 0) {
-            return ErrorCode.SYSTEM_ERROR.getCode();
+            return defaultErrorCode;
         }
-        return execMessage.substring(0, separatorIndex).trim();
+        String prefixedErrorType = StringUtils.trimToNull(execMessage.substring(0, separatorIndex));
+        return prefixedErrorType == null ? defaultErrorCode : prefixedErrorType;
     }
 
     private String appendAgentContext(String execMessage, ChartAgentExecutionContext executionContext) {

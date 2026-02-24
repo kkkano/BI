@@ -1,6 +1,7 @@
 package com.yupi.springbootinit.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.yupi.springbootinit.common.ErrorCode;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
@@ -15,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
@@ -153,5 +155,49 @@ class ChartServiceImplTest {
 
         assertArrayEquals(new String[]{"genChart", "genResult"}, result);
         verify(serviceSpy, never()).handleChartUpdateError(eq(12L), anyString());
+    }
+
+    @Test
+    void handleChartUpdateErrorShouldKeepStructuredErrorType() {
+        ChartServiceImpl serviceSpy = spy(new ChartServiceImpl());
+        doReturn(true).when(serviceSpy).update(any(Chart.class), any(Wrapper.class));
+
+        serviceSpy.handleChartUpdateError(
+                7L,
+                "chartId=7 | errorType=50014 | timestamp=2026-02-24T13:30:00 | message=执行异常"
+        );
+
+        ArgumentCaptor<Chart> chartCaptor = ArgumentCaptor.forClass(Chart.class);
+        verify(serviceSpy).update(chartCaptor.capture(), any(Wrapper.class));
+        assertTrue(chartCaptor.getValue().getExecMessage().contains("errorType=50014"));
+    }
+
+    @Test
+    void handleChartUpdateErrorShouldExtractPrefixErrorCode() {
+        ChartServiceImpl serviceSpy = spy(new ChartServiceImpl());
+        doReturn(true).when(serviceSpy).update(any(Chart.class), any(Wrapper.class));
+
+        serviceSpy.handleChartUpdateError(7L, "50012: AI 生成图表结果失败");
+
+        ArgumentCaptor<Chart> chartCaptor = ArgumentCaptor.forClass(Chart.class);
+        verify(serviceSpy).update(chartCaptor.capture(), any(Wrapper.class));
+        assertTrue(chartCaptor.getValue().getExecMessage().contains("errorType=50012"));
+    }
+
+    @Test
+    void handleChartUpdateErrorShouldFallbackToSystemErrorCodeWhenMissing() {
+        ChartServiceImpl serviceSpy = spy(new ChartServiceImpl());
+        doReturn(true).when(serviceSpy).update(any(Chart.class), any(Wrapper.class));
+
+        serviceSpy.handleChartUpdateError(7L, "执行异常");
+
+        ArgumentCaptor<Chart> chartCaptor = ArgumentCaptor.forClass(Chart.class);
+        verify(serviceSpy).update(chartCaptor.capture(), any(Wrapper.class));
+        assertTrue(
+                chartCaptor
+                        .getValue()
+                        .getExecMessage()
+                        .contains("errorType=" + ErrorCode.SYSTEM_ERROR.getCode())
+        );
     }
 }
