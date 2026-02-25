@@ -185,8 +185,41 @@ class ChartControllerTaskStatusTest {
         assertEquals(2, response.getData().getReturnedCount());
         assertEquals(Arrays.asList(63L, 64L), response.getData().getUnavailableChartIds());
         assertEquals(2, response.getData().getTaskStatusList().size());
+        assertEquals(1, response.getData().getPendingCount());
+        assertEquals(1, response.getData().getTerminalCount());
+        assertFalse(response.getData().getAllFinished());
         assertEquals(61L, response.getData().getTaskStatusList().get(0).getChartId());
         assertEquals(62L, response.getData().getTaskStatusList().get(1).getChartId());
+    }
+
+    @Test
+    void getChartTaskStatusBatchDetailShouldMarkAllFinishedWhenNoPendingTask() {
+        User loginUser = buildUser(451L);
+        Chart succeedChart = buildChart(71L, loginUser.getId(), ChartStatusEnum.SUCCEED.getValue());
+        Chart failedChart = buildChart(72L, loginUser.getId(), ChartStatusEnum.FAILED.getValue());
+
+        Chart succeedChartContent = new Chart();
+        succeedChartContent.setId(71L);
+        succeedChartContent.setUserId(loginUser.getId());
+        succeedChartContent.setGenChart("{\"series\":[2]}");
+        succeedChartContent.setGenResult("ok");
+
+        ChartTaskStatusBatchRequest batchRequest = new ChartTaskStatusBatchRequest();
+        batchRequest.setChartIds(Arrays.asList(71L, 72L, 73L));
+
+        when(userService.getLoginUser(request)).thenReturn(loginUser);
+        when(userService.isAdmin(request)).thenReturn(false);
+        when(chartService.list(any()))
+                .thenReturn(Arrays.asList(succeedChart, failedChart))
+                .thenReturn(Collections.singletonList(succeedChartContent));
+
+        BaseResponse<ChartTaskStatusBatchVO> response = chartController.getChartTaskStatusBatchDetail(batchRequest, request);
+
+        assertNotNull(response.getData());
+        assertEquals(0, response.getData().getPendingCount());
+        assertEquals(2, response.getData().getTerminalCount());
+        assertTrue(response.getData().getAllFinished());
+        assertEquals(Collections.singletonList(73L), response.getData().getUnavailableChartIds());
     }
 
     @Test

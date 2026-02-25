@@ -304,6 +304,11 @@ public class ChartController {
         batchVO.setSucceedCount(succeedCount);
         batchVO.setFailedCount(failedCount);
         batchVO.setUnavailableCount(unavailableChartIds.size());
+        int pendingCount = waitCount + runningCount;
+        int terminalCount = succeedCount + failedCount;
+        batchVO.setPendingCount(pendingCount);
+        batchVO.setTerminalCount(terminalCount);
+        batchVO.setAllFinished(pendingCount == 0);
         batchVO.setUnavailableChartIds(unavailableChartIds);
         batchVO.setTaskStatusList(taskStatusList);
         return batchVO;

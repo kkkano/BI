@@ -51,6 +51,22 @@ public class ChartTaskStatusBatchVO implements Serializable {
     private Integer unavailableCount;
 
     /**
+     * 仍处于处理中（wait / running）的任务数量
+     * 便于前端快速判断是否继续轮询
+     */
+    private Integer pendingCount;
+
+    /**
+     * 已进入终态（succeed / failed）的任务数量
+     */
+    private Integer terminalCount;
+
+    /**
+     * 批量任务是否全部结束（无 wait / running）
+     */
+    private Boolean allFinished;
+
+    /**
      * 未返回任务状态的图表 id（不存在 / 无权限 / 已删除）
      * 对普通用户统一视为不可用，避免泄露他人任务存在性
      */
