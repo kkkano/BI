@@ -107,6 +107,10 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     private static final DateTimeFormatter EXEC_MESSAGE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private static final Pattern STRUCTURED_ERROR_TYPE_PATTERN =
             Pattern.compile("(?:^|\\|)\\s*errorType\\s*=\\s*([^|]+)");
+    private static final Pattern MARKDOWN_CODE_BLOCK_PATTERN =
+            Pattern.compile("^```(?:[a-zA-Z0-9_-]+)?\\s*([\\s\\S]*?)\\s*```$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern JSON_LABEL_PREFIX_PATTERN =
+            Pattern.compile("^json\\s*(?:\\r?\\n|$)", Pattern.CASE_INSENSITIVE);
 
     @Override
     public void handleChartUpdateError(long chartId, String execMessage) {
@@ -319,7 +323,44 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
                     splits.length, aiResult.length(), StringUtils.abbreviate(aiResult, 200));
             return null;
         }
-        return new String[]{splits[1].trim(), splits[2].trim()};
+
+        String normalizedGenChart = normalizeAiChartPayload(splits[1]);
+        String normalizedGenResult = normalizeAiResultSummary(splits[2]);
+        if (StringUtils.isAnyBlank(normalizedGenChart, normalizedGenResult)) {
+            log.warn("AI 返回结果规范化后为空 splitCount={}, aiResultLength={}, preview={}",
+                    splits.length, aiResult.length(), StringUtils.abbreviate(aiResult, 200));
+            return null;
+        }
+        return new String[]{normalizedGenChart, normalizedGenResult};
+    }
+
+    private String normalizeAiChartPayload(String rawPayload) {
+        String payload = StringUtils.trimToEmpty(rawPayload);
+        Matcher fencedMatcher = MARKDOWN_CODE_BLOCK_PATTERN.matcher(payload);
+        if (fencedMatcher.matches()) {
+            payload = StringUtils.trimToEmpty(fencedMatcher.group(1));
+        }
+
+        payload = JSON_LABEL_PREFIX_PATTERN.matcher(payload).replaceFirst("").trim();
+
+        int objectStart = payload.indexOf('{');
+        int objectEnd = payload.lastIndexOf('}');
+        if (objectStart >= 0 && objectEnd > objectStart) {
+            String objectPayload = StringUtils.trimToNull(payload.substring(objectStart, objectEnd + 1));
+            if (objectPayload != null) {
+                return objectPayload;
+            }
+        }
+        return payload;
+    }
+
+    private String normalizeAiResultSummary(String rawSummary) {
+        String summary = StringUtils.trimToEmpty(rawSummary);
+        Matcher fencedMatcher = MARKDOWN_CODE_BLOCK_PATTERN.matcher(summary);
+        if (fencedMatcher.matches()) {
+            return StringUtils.trimToEmpty(fencedMatcher.group(1));
+        }
+        return summary;
     }
 
     @Override

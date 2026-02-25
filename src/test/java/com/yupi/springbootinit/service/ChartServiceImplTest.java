@@ -62,6 +62,34 @@ class ChartServiceImplTest {
     }
 
     @Test
+    void parseAiResultShouldNormalizeMarkdownCodeFencePayload() {
+        String delimiter = ChartService.AI_RESULT_DELIMITER;
+        String aiResult = "prefix"
+                + delimiter
+                + "```json\n{\"xAxis\":[]}\n```"
+                + delimiter
+                + "```text\n分析完成\n```";
+
+        String[] parsed = chartService.parseAiResult(aiResult);
+
+        assertArrayEquals(new String[]{"{\"xAxis\":[]}", "分析完成"}, parsed);
+    }
+
+    @Test
+    void parseAiResultShouldExtractObjectFromVerboseChartPayload() {
+        String delimiter = ChartService.AI_RESULT_DELIMITER;
+        String aiResult = "prefix"
+                + delimiter
+                + "图表配置如下：\n```json\n{\"title\":{\"text\":\"销量\"}}\n```\n请直接渲染"
+                + delimiter
+                + "分析已完成";
+
+        String[] parsed = chartService.parseAiResult(aiResult);
+
+        assertArrayEquals(new String[]{"{\"title\":{\"text\":\"销量\"}}", "分析已完成"}, parsed);
+    }
+
+    @Test
     void getQueryWrapperShouldExcludeChartDataByDefault() {
         ChartQueryRequest request = new ChartQueryRequest();
 
