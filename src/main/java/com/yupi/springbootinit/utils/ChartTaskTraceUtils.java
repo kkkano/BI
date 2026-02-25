@@ -23,7 +23,13 @@ public final class ChartTaskTraceUtils {
      * chartId=1 | errorType=50014 | message=CSV 缺失 | agentPhase=failed
      */
     private static final Pattern STRUCTURED_FIELD_PATTERN =
-            Pattern.compile("(?:^|\\|)\\s*([a-zA-Z][a-zA-Z0-9]*)\\s*=\\s*");
+            Pattern.compile("(?:^|\\|)\\s*([a-zA-Z][a-zA-Z0-9_-]*)\\s*=\\s*");
+
+    /**
+     * 兼容旧格式："50014: xxx" 或 "50014：xxx"
+     */
+    private static final Pattern PREFIXED_ERROR_CODE_PATTERN =
+            Pattern.compile("^\\s*(\\d{3,})\\s*[:：]\\s*(.*)$");
 
     private ChartTaskTraceUtils() {
     }
@@ -80,6 +86,9 @@ public final class ChartTaskTraceUtils {
 
         String failureCode = fieldMap.get("errorType");
         if (StringUtils.isBlank(failureCode)) {
+            failureCode = extractPrefixedErrorCode(execMessage);
+        }
+        if (StringUtils.isBlank(failureCode)) {
             failureCode = defaultFailureCode;
         }
         String failureTime = fieldMap.get("timestamp");
@@ -87,7 +96,39 @@ public final class ChartTaskTraceUtils {
         if (StringUtils.isBlank(failureMessage)) {
             failureMessage = execMessage;
         }
+        failureMessage = normalizeFailureMessage(failureCode, failureMessage);
         return new TaskFailureInfo(failureCode, failureMessage, failureTime);
+    }
+
+    private static String extractPrefixedErrorCode(String execMessage) {
+        if (StringUtils.isBlank(execMessage)) {
+            return null;
+        }
+        Matcher matcher = PREFIXED_ERROR_CODE_PATTERN.matcher(execMessage);
+        if (!matcher.matches()) {
+            return null;
+        }
+        return StringUtils.trimToNull(matcher.group(1));
+    }
+
+    /**
+     * message 形如 "50014: 任务队列已满" 时，剥离重复错误码，避免前端重复展示。
+     */
+    private static String normalizeFailureMessage(String failureCode, String failureMessage) {
+        String normalizedMessage = StringUtils.trimToNull(failureMessage);
+        if (normalizedMessage == null || StringUtils.isBlank(failureCode)) {
+            return normalizedMessage;
+        }
+        Matcher matcher = PREFIXED_ERROR_CODE_PATTERN.matcher(normalizedMessage);
+        if (!matcher.matches()) {
+            return normalizedMessage;
+        }
+        String prefixedCode = StringUtils.trimToNull(matcher.group(1));
+        if (!StringUtils.equals(prefixedCode, failureCode)) {
+            return normalizedMessage;
+        }
+        String plainMessage = StringUtils.trimToNull(matcher.group(2));
+        return plainMessage == null ? normalizedMessage : plainMessage;
     }
 
     /**

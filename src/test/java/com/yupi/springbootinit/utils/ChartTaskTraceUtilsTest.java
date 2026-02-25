@@ -90,4 +90,27 @@ class ChartTaskTraceUtilsTest {
         Assertions.assertNull(failureInfo.getFailureMessage());
         Assertions.assertNull(failureInfo.getFailureTime());
     }
+
+    @Test
+    void parseFailureInfo_shouldStripDuplicatedErrorCodeInStructuredMessage() {
+        String execMessage = "chartId=1 | errorType=50014 | timestamp=2026-02-25T07:00:00 | "
+                + "message=50014: 任务队列已满 | agentPhase=failed";
+
+        ChartTaskTraceUtils.TaskFailureInfo failureInfo =
+                ChartTaskTraceUtils.parseFailureInfo(ChartStatusEnum.FAILED.getValue(), execMessage);
+
+        Assertions.assertEquals("50014", failureInfo.getFailureCode());
+        Assertions.assertEquals("任务队列已满", failureInfo.getFailureMessage());
+        Assertions.assertEquals("2026-02-25T07:00:00", failureInfo.getFailureTime());
+    }
+
+    @Test
+    void parseFailureInfo_shouldSupportLegacyPrefixedExecMessage() {
+        ChartTaskTraceUtils.TaskFailureInfo failureInfo =
+                ChartTaskTraceUtils.parseFailureInfo(ChartStatusEnum.FAILED.getValue(), "50013: AI 生成失败");
+
+        Assertions.assertEquals("50013", failureInfo.getFailureCode());
+        Assertions.assertEquals("AI 生成失败", failureInfo.getFailureMessage());
+        Assertions.assertNull(failureInfo.getFailureTime());
+    }
 }
