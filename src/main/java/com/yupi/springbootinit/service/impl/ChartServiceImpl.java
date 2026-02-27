@@ -18,6 +18,7 @@ import com.yupi.springbootinit.model.enums.ChartTaskPhaseEnum;
 import com.yupi.springbootinit.model.vo.BiResponse;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
+import com.yupi.springbootinit.utils.ChartTaskStatusViewUtils;
 import com.yupi.springbootinit.utils.ChartTaskTraceUtils;
 import com.yupi.springbootinit.utils.ChartTaskTraceUtils.TaskFailureInfo;
 import com.yupi.springbootinit.utils.SqlUtils;
@@ -389,8 +390,13 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         biResponse.setGoal(chart.getGoal());
         biResponse.setChartType(chart.getChartType());
         biResponse.setStatus(chart.getStatus());
-        biResponse.setTaskPhase(ChartTaskTraceUtils.resolveTaskPhase(chart.getStatus(), chart.getExecMessage()));
+        biResponse.setStatusText(ChartTaskStatusViewUtils.resolveStatusText(chart.getStatus()));
+        String taskPhase = ChartTaskTraceUtils.resolveTaskPhase(chart.getStatus(), chart.getExecMessage());
+        biResponse.setTaskPhase(taskPhase);
         biResponse.setTraceId(ChartTaskTraceUtils.buildTraceId(chart.getId()));
+        biResponse.setShouldPoll(ChartTaskStatusViewUtils.shouldPoll(chart.getStatus()));
+        biResponse.setTerminal(ChartTaskStatusViewUtils.isTerminal(chart.getStatus()));
+        biResponse.setProgress(ChartTaskStatusViewUtils.resolveProgress(chart.getStatus(), taskPhase));
         biResponse.setExecMessage(chart.getExecMessage());
 
         TaskFailureInfo failureInfo = ChartTaskTraceUtils.parseFailureInfo(chart.getStatus(), chart.getExecMessage());
