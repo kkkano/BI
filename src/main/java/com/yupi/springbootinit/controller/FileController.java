@@ -13,6 +13,8 @@ import com.yupi.springbootinit.model.entity.User;
 import com.yupi.springbootinit.model.enums.FileUploadBizEnum;
 import com.yupi.springbootinit.service.UserService;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -21,6 +23,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -43,6 +46,9 @@ public class FileController {
     private static final List<String> USER_AVATAR_ALLOWED_SUFFIXES =
             Arrays.asList("jpeg", "jpg", "svg", "png", "webp");
 
+    private static final List<String> USER_AVATAR_ALLOWED_CONTENT_TYPES =
+            Arrays.asList("image/jpeg", "image/png", "image/webp", "image/svg+xml");
+
     @Resource
     private UserService userService;
 
@@ -52,10 +58,10 @@ public class FileController {
     /**
      * 文件上传
      *
-     * @param multipartFile
-     * @param uploadFileRequest
-     * @param request
-     * @return
+     * @param multipartFile 上传文件
+     * @param uploadFileRequest 上传业务参数
+     * @param request 请求上下文
+     * @return 文件可访问 URL
      */
     @PostMapping("/upload")
     public BaseResponse<String> uploadFile(@RequestPart("file") MultipartFile multipartFile,
@@ -69,15 +75,21 @@ public class FileController {
         }
         validFile(multipartFile, fileUploadBizEnum);
         User loginUser = userService.getLoginUser(request);
+
+        String originalFilename = FileUtil.getName(multipartFile.getOriginalFilename());
+        ThrowUtils.throwIf(StringUtils.isBlank(originalFilename), ErrorCode.PARAMS_ERROR, "文件名不能为空");
+
         // 文件目录：根据业务、用户来划分
         String uuid = RandomStringUtils.randomAlphanumeric(8);
-        String originalFilename = FileUtil.getName(multipartFile.getOriginalFilename());
         String filename = uuid + "-" + originalFilename;
         String filepath = String.format("/%s/%s/%s", fileUploadBizEnum.getValue(), loginUser.getId(), filename);
+
+        String fileSuffix = FileUtil.getSuffix(originalFilename);
+        String normalizedSuffix = StringUtils.isBlank(fileSuffix) ? "tmp" : fileSuffix.toLowerCase(Locale.ROOT);
         File tempFile = null;
         try {
             // 上传文件
-            tempFile = File.createTempFile("upload-", ".tmp");
+            tempFile = File.createTempFile("upload-", "." + normalizedSuffix);
             multipartFile.transferTo(tempFile);
             cosManager.putObject(filepath, tempFile);
             // 返回可访问地址
@@ -86,31 +98,28 @@ public class FileController {
             log.error("file upload error, filepath = {}", filepath, e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
         } finally {
-            if (tempFile != null) {
-                // 删除临时文件
-                boolean deleted = tempFile.delete();
-                if (!deleted) {
-                    log.error("file delete error, filepath = {}", filepath);
-                }
-            }
+            cleanupTempFile(tempFile, filepath);
         }
     }
 
     /**
      * 校验文件
      *
-     * @param multipartFile
+     * @param multipartFile 上传文件
      * @param fileUploadBizEnum 业务类型
      */
     private void validFile(MultipartFile multipartFile, FileUploadBizEnum fileUploadBizEnum) {
         ThrowUtils.throwIf(multipartFile == null || multipartFile.isEmpty(), ErrorCode.PARAMS_ERROR, "文件不能为空");
+
         // 文件大小
         long fileSize = multipartFile.getSize();
+
         // 文件后缀
         String originalFilename = multipartFile.getOriginalFilename();
-        ThrowUtils.throwIf(originalFilename == null, ErrorCode.PARAMS_ERROR, "文件名不能为空");
+        ThrowUtils.throwIf(StringUtils.isBlank(originalFilename), ErrorCode.PARAMS_ERROR, "文件名不能为空");
         String fileSuffix = FileUtil.getSuffix(originalFilename);
         fileSuffix = fileSuffix == null ? "" : fileSuffix.toLowerCase(Locale.ROOT);
+
         if (FileUploadBizEnum.USER_AVATAR.equals(fileUploadBizEnum)) {
             if (fileSize > ONE_M) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件大小不能超过 1M");
@@ -119,6 +128,44 @@ public class FileController {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR,
                         "文件类型错误，仅支持: " + USER_AVATAR_ALLOWED_SUFFIXES);
             }
+
+            String contentType = multipartFile.getContentType();
+            if (!isAllowedContentType(contentType, USER_AVATAR_ALLOWED_CONTENT_TYPES)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR,
+                        "文件 MIME 类型错误，仅支持: " + USER_AVATAR_ALLOWED_CONTENT_TYPES);
+            }
+        }
+    }
+
+    /**
+     * MIME 类型校验（兼容携带 charset 的场景）
+     */
+    private boolean isAllowedContentType(String contentType, List<String> allowedContentTypes) {
+        if (StringUtils.isBlank(contentType)) {
+            return false;
+        }
+        String normalizedContentType = contentType.toLowerCase(Locale.ROOT);
+        for (String allowedContentType : allowedContentTypes) {
+            String normalizedAllowedContentType = allowedContentType.toLowerCase(Locale.ROOT);
+            if (normalizedContentType.equals(normalizedAllowedContentType)
+                    || normalizedContentType.startsWith(normalizedAllowedContentType + ";")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 删除上传过程中的临时文件
+     */
+    private void cleanupTempFile(File tempFile, String filepath) {
+        if (tempFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(tempFile.toPath());
+        } catch (IOException e) {
+            log.warn("file delete error, filepath = {}", filepath, e);
         }
     }
 }
